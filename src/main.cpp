@@ -28,7 +28,7 @@
 
 #include <google/protobuf/util/json_util.h>
 
-#include "utilities.h"
+#include "../include/utilities.h"
 
 #if defined(_MSC_VER)
 #include <Windows.h>

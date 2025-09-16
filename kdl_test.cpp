@@ -14,7 +14,6 @@
  
 using namespace KDL;
  
- 
 int main( int argc, char** argv )
 {
     //Definition of a kinematic chain & add segments to the chain
