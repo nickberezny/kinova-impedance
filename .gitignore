@@ -1,6 +1,7 @@
 eigen-*
 build
-kortex_api/
+kortex_api
+log
 
 # Prerequisites
 *.d

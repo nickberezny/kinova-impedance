@@ -1,137 +1,90 @@
-// Copyright 2016 Open Source Robotics Foundation, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-#include <chrono>
-#include <functional>
-#include <memory>
-#include <string>
-
-#include "rclcpp/rclcpp.hpp"
-#include <rclcpp/serialization.hpp>
-
+// Copyright  (C)  2007  Francois Cauwe <francois at cauwe dot org>
+ 
+// This library is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation; either
+// version 2.1 of the License, or (at your option) any later version.
+ 
+#include "kdl/jacobian.hpp"
 #include "kdl/tree.hpp"
 #include "kdl/chain.hpp"
 #include "kdl/frames.hpp"
 #include "kdl/jntarray.hpp"
 #include "kdl/chainiksolverpos_lma.hpp"
-#include "kdl_parser/kdl_parser.hpp"
+#include <kdl_parser/kdl_parser.hpp>
 #include "kdl/chainjnttojacsolver.hpp"
 #include "kdl/chaindynparam.hpp"
+#include <chainfksolvervel_recursive.hpp>
+#include <chainfksolverpos_recursive.hpp>
+#include <stdio.h>
+#include <iostream>
 
-#include "custom_interfaces/msg/joints.hpp"
-#include "custom_interfaces/msg/pos.hpp"
+#include "../include/structs.h"
+#include "../include/inverse_kinematics.h"
+ 
+using namespace KDL;
 
-using namespace std::chrono_literals;
-
-/* This example creates a subclass of Node and uses std::bind() to register a
- * member function as a callback from the timer. */
-
-class InverseKinematics : public rclcpp::Node
+KDL::Chain loadKDLChain(std::string urdf_path)
 {
-public:
-  InverseKinematics()
-  : Node("inverse_kinematics"), count_(0)
-  {
-    subscription_ = this->create_subscription<custom_interfaces::msg::Pos>(
-      "command_pos", 10, std::bind(&InverseKinematics::topic_callback, this, std::placeholders::_1));
-    publisher_ = this->create_publisher<custom_interfaces::msg::Joints>("command_q", 10);
-    initIK();
-  }
-  KDL::Tree tree_;
-  KDL::Chain chain_;
-  KDL::Frame X;
-  KDL::Jacobian jac;
-  KDL::JntSpaceInertiaMatrix H; 
+    KDL::Tree tree_;
+    KDL::Chain chain_;
+    //std::unique_ptr<KDL::ChainIkSolverPos_LMA> solver;
 
-  custom_interfaces::msg::Joints jointq;
-  std::unique_ptr<KDL::ChainIkSolverPos_LMA> solver_;
-  std::unique_ptr<KDL::ChainJntToJacSolver> jac_solver_;
-  std::unique_ptr<KDL::ChainDynParam> dynParam_;
-
-private:
-  void topic_callback(const custom_interfaces::msg::Pos msg) 
-  {
-    //run IK 
-    //pub x
-
-    X.p = KDL::Vector(msg.x, msg.y, msg.z);
-    X.M = KDL::Rotation::RotX(KDL::PI*3.0/2.0);
-    KDL::JntArray q_prev(7);
-    KDL::JntArray q_cur(7);
-    //KDL::JntArray q_out(chain_.getNrOfJoints());
-    // Run IK solver
-    solver_->CartToJnt(q_prev, X, q_cur);
-    jac_solver_->JntToJac(q_cur, jac);
-    dynParam_->JntToMass(q_cur, H);
-
-    for(int i = 0; i < 7; i++)
-    {
-      jointq.q[i] = q_cur(i);
-      q_prev(i) = q_cur(i);
-    }
-
-    publisher_->publish(jointq);
-
-  }
-  void initIK()
-  {
-    
-    // Construct KDL tree from URDF
-    const std::string urdf = "/mnt/c/Users/Nick/Documents/ROS/ros2_ws/src/kinova_uic/urdf/GEN3_URDF_V12.urdf";
-    kdl_parser::treeFromFile(urdf, tree_);
-    KDL::JntArray q_prev(7);
-    KDL::JntArray q_cur(7);
-    // Print basic information about the tree
-    std::cout << "nb joints:        " << tree_.getNrOfJoints() << std::endl;
-    std::cout << "nb segments:      " << tree_.getNrOfSegments() << std::endl;
-    std::cout << "root segment:     " << tree_.getRootSegment()->first
-              << std::endl;
-
+    kdl_parser::treeFromFile(urdf_path, tree_);
     tree_.getChain("base_link", "EndEffector_Link", chain_);
+
     std::cout << "chain nb joints:  " << chain_.getNrOfJoints() << std::endl;
 
-    solver_ = std::make_unique<KDL::ChainIkSolverPos_LMA>(chain_);
-    
-    
-    const KDL::Rotation Ry(0.0,0.0,1.0,0.0,1.0,0.0,-1.0,0.0,0.0);
-    const KDL::Rotation Rz(0.0,-1.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0);
+    return chain_;
+}
 
-    const KDL::Rotation Rx=KDL::Rotation::RotY(KDL::PI/4.0);
+/*
+int main( int argc, char** argv )
+{
 
-    KDL::Frame p_in(Rx,KDL::Vector(0, -0.4, 0.6));
-    X = p_in;
-    solver_->CartToJnt(q_prev, p_in, q_cur);
+    KDL::JntArray q_prev(7);
+    KDL::JntArray q_cur(7);
+    KDL::JntArray dq_cur(7);
+    KDL::Jacobian jac(7);
+
+    const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
+
+    KDL::Chain chain_;
+    chain_ = loadKDLChain(urdf);
+    kdl_solvers solvers(chain_);
+
+    KDL::Frame X; 
+    X.p = KDL::Vector(0.3, -0.8, 0.5);
+    X.M = KDL::Rotation::RotX(KDL::PI*3.0/4.0);
 
     for(int i = 0; i < 7; i++)
     {
-      jointq.q[i] = q_cur(i);
-      q_prev(i) = q_cur(i);
-      //std::cout << q_cur(i) << ",";
+      q_prev(i) = 0.5;
     }
 
-    publisher_->publish(jointq);
+    solvers.IK_solver->CartToJnt(q_prev, X, q_cur);
 
-  }
-  rclcpp::Publisher<custom_interfaces::msg::Joints>::SharedPtr publisher_;
-  rclcpp::Subscription<custom_interfaces::msg::Pos>::SharedPtr subscription_;
-  size_t count_;
-};
+    for(int i = 0; i < 7; i++)
+    {
+      //q_prev(i) = q_cur(i);
+      std::cout << q_cur(i) << ",";
+    }
 
-int main(int argc, char * argv[])
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<InverseKinematics>());
-  rclcpp::shutdown();
-  return 0;
+    std::cout << std::endl;
+   
+    solvers.Jac_solver->JntToJac(q_cur, jac);
+
+    for(int i = 0; i < 6; i++)
+    {
+        for(int j = 0; j<7; j++)
+        {
+            std::cout << jac(i,j) << ",";
+        }
+        std::cout << std::endl;
+    }
+    
+    
+ 
+
 }
+*/

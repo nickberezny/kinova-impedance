@@ -14,6 +14,10 @@
 #include <kdl_parser/kdl_parser.hpp>
 #include "kdl/chainjnttojacsolver.hpp"
 #include "kdl/chaindynparam.hpp"
+
+#include <Eigen/Dense>
+#include <unsupported/Eigen/MatrixFunctions>
+
 #include <stdio.h>
 #include <iostream>
  
@@ -53,6 +57,9 @@ int main( int argc, char** argv )
 
     const KDL::Rotation Rx=KDL::Rotation::RotY(KDL::PI/4.0);
 
+    // Run IK solver
+    solver_->CartToJnt(q_prev, X, q_cur);
+
     KDL::Frame p_in(Rx,KDL::Vector(0, -0.4, 0.6));
     X = p_in;
     solver_->CartToJnt(q_prev, p_in, q_cur);
@@ -61,13 +68,15 @@ int main( int argc, char** argv )
     X.p = KDL::Vector(0.3, -1.0, 0.5);
     X.M = KDL::Rotation::RotX(KDL::PI*3.0/4.0);
     //KDL::JntArray q_out(chain_.getNrOfJoints());
-    // Run IK solver
-    solver_->CartToJnt(q_prev, X, q_cur);
+
+    Eigen::VectorXd K(7);
+
+    K = q_cur.data;
 
     for(int i = 0; i < 7; i++)
     {
       q_prev(i) = q_cur(i);
-      std::cout << q_cur(i) << ",";
+      std::cout << K(i) << "," << q_cur(i) << ",";
     }
  
     unsigned int i = 0;

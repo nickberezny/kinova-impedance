@@ -195,6 +195,13 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             now = GetTickUs();
             if(now - last > 1000)
             {
+                //---------CONTROL CODE---------------------
+                //TODO (init): open udp, log file, get params,...
+                //read force (udp) (F)
+                //get virtual trajectory (F->xv)
+                //inverse kin (xv->q)
+                //log 
+
                 for(int i = 0; i < actuator_count; i++)
                 {
                     // Move only the last actuator to prevent collision

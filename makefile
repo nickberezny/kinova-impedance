@@ -4,6 +4,13 @@ INCLUDES=-I/usr/include/eigen3 -I/usr/local/include/kdl -I/usr/local/include/ -I
 K_INCLUDES=-I$(LOCAL)kortex_api/include/ -I$(LOCAL)kortex_api/include/messages -I$(LOCAL)kortex_api/include/client -I$(LOCAL)kortex_api/include/client_stubs -I$(LOCAL)kortex_api/include/common
 LIBS=-L/usr/local/lib/ -L/home/nick/Documents/kinova_impedance/kortex_api/lib/release/ -ltinyxml -lurdf -lkdl_parser -lorocos-kdl -lKortexApiCpp -lpthread
 
+jointJogger:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/jointJogger.cpp $(LIBS) -o build/jointJogger
+
+
+
+
+
 
 eigen:
 	$(CC) $(INCLUDES) eigen_test.cpp -o build/eigen_test
@@ -16,8 +23,14 @@ admittance:
 
 kinova:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/utilities.cpp src/main.cpp $(LIBS) -o build/kinova 
-run:
-	./build/admittance
+
+udp:
+	$(CC) src/udpClient.cpp -o build/udp
+
+logger:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/utilities.cpp src/dataLogger.cpp $(LIBS) -o build/logger
+
+
 
 
 
