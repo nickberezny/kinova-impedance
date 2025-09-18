@@ -20,11 +20,14 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <chrono>
  
 using namespace KDL;
  
 int main( int argc, char** argv )
 {
+
+
     KDL::Tree tree_;
     KDL::Chain chain_;
     KDL::Frame X;
@@ -62,8 +65,13 @@ int main( int argc, char** argv )
 
     KDL::Frame p_in(Rx,KDL::Vector(0, -0.4, 0.6));
     X = p_in;
-    solver_->CartToJnt(q_prev, p_in, q_cur);
 
+    //TIME
+    auto lastFrameTime = std::chrono::steady_clock::now();
+    solver_->CartToJnt(q_prev, p_in, q_cur);
+    auto currentFrameTime = std::chrono::steady_clock::now();
+    std::chrono::duration<double> deltaTime = currentFrameTime - lastFrameTime;
+    std::cout << "Delta Time: " << deltaTime.count() << " seconds" << std::endl;
 
     X.p = KDL::Vector(0.3, -1.0, 0.5);
     X.M = KDL::Rotation::RotX(KDL::PI*3.0/4.0);

@@ -1,5 +1,3 @@
-
-
 struct dynamicModel {
 	Eigen::MatrixXd M;
 	Eigen::MatrixXd C;
@@ -39,3 +37,4 @@ struct kdl_solvers {
     }
 
 };
+

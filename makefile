@@ -11,7 +11,6 @@ jointJogger:
 
 
 
-
 eigen:
 	$(CC) $(INCLUDES) eigen_test.cpp -o build/eigen_test
 
@@ -25,10 +24,10 @@ kinova:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/utilities.cpp src/main.cpp $(LIBS) -o build/kinova 
 
 udp:
-	$(CC) src/udpClient.cpp -o build/udp
+	$(CC) src/todo/udpClient.cpp -o build/udp
 
 logger:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/utilities.cpp src/dataLogger.cpp $(LIBS) -o build/logger
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/dataLogger.cpp test_log.cpp $(LIBS) -o build/logger
 
 
 

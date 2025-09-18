@@ -45,6 +45,8 @@
 #include <chainfksolvervel_recursive.hpp>
 #include <chainfksolverpos_recursive.hpp>
 
+#include <chrono>
+
 #include "utilities.h"
 #include "../include/structs.h"
 #include "../include/inverse_kinematics.h"
