@@ -17,9 +17,12 @@
 namespace k_api = Kinova::Api;
 
 
-void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedback data)
+void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedback data, int64_t now)
 {
     if ((*outputFile).is_open()) {
+
+        (*outputFile) << now << ",";
+
         for(int i = 0; i < 7; i++)
         {
             (*outputFile) << data.actuators(i).position() << ",";
@@ -27,6 +30,8 @@ void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedbac
             (*outputFile) << data.actuators(i).torque() << ",";
             (*outputFile) << data.actuators(i).current_motor() << ",";
         }
+
+        (*outputFile) << std::endl;
     }
 
 }
@@ -49,11 +54,12 @@ void openLogFile(std::ofstream * outputFile)
 
     if ((*outputFile).is_open()) {
 
+        (*outputFile) << ",";
         for(int i=0; i < 7; i++)
         {
             (*outputFile) << "J" << std::to_string(i) << ",,,,";
         }
-        (*outputFile) << std::endl;
+        (*outputFile) << std::endl << "t,";
         for(int i=0; i < 7; i++)
         {
             (*outputFile) << "x,dx,tau,i,";

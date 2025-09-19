@@ -7,9 +7,12 @@ LIBS=-L/usr/local/lib/ -L/home/nick/Documents/kinova_impedance/kortex_api/lib/re
 jointJogger:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/jointJogger.cpp $(LIBS) -o build/jointJogger
 
+admittance:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/admittance.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_main.cpp $(LIBS) -o build/admittance
 
 
-
+kortex: 
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/dataLogger.cpp src/utilities.cpp src/01-actuator_low_level_velocity_control.cpp $(LIBS) -o build/kortex
 
 eigen:
 	$(CC) $(INCLUDES) eigen_test.cpp -o build/eigen_test
@@ -17,8 +20,8 @@ eigen:
 kdl:
 	$(CC) $(INCLUDES) kdl_test.cpp $(LIBS)  -o build/kdl_test
 
-admittance:
-	$(CC) $(INCLUDES) src/admittance.cpp -o build/admittance
+adm_test: 
+	$(CC) $(INCLUDES) src/admittance.cpp $(LIBS)  -o build/adm_test
 
 kinova:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/utilities.cpp src/main.cpp $(LIBS) -o build/kinova 

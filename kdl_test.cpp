@@ -14,6 +14,8 @@
 #include <kdl_parser/kdl_parser.hpp>
 #include "kdl/chainjnttojacsolver.hpp"
 #include "kdl/chaindynparam.hpp"
+#include <chainfksolvervel_recursive.hpp>
+#include <chainfksolverpos_recursive.hpp>
 
 #include <Eigen/Dense>
 #include <unsupported/Eigen/MatrixFunctions>
@@ -27,6 +29,7 @@ using namespace KDL;
 int main( int argc, char** argv )
 {
 
+    const double PI = 3.14159265358979323846;
 
     KDL::Tree tree_;
     KDL::Chain chain_;
@@ -35,6 +38,7 @@ int main( int argc, char** argv )
     KDL::JntSpaceInertiaMatrix H; 
 
     std::unique_ptr<KDL::ChainIkSolverPos_LMA> solver_;
+    std::unique_ptr<KDL::ChainFkSolverPos_recursive> solverFK_;
     std::unique_ptr<KDL::ChainDynParam> dynParam_;
 
     const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
@@ -52,6 +56,7 @@ int main( int argc, char** argv )
 
     KDL::Jacobian jac(chain_.getNrOfJoints());
     solver_ = std::make_unique<KDL::ChainIkSolverPos_LMA>(chain_);
+    solverFK_ = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
     KDL::ChainJntToJacSolver jac_solver(chain_);
    
    
@@ -60,6 +65,27 @@ int main( int argc, char** argv )
 
     const KDL::Rotation Rx=KDL::Rotation::RotY(KDL::PI/4.0);
 
+    Eigen::VectorXd Q(7);
+    Q << 4.7, 15, 180, 230, 341, 55, 67; //360.0, 15.0, 180.0, 230.0, 0.0, 55.0, 90.0;
+
+    for(int i = 0; i < 7; i++)
+    {
+        q_prev(i) = 2*PI*Q(i)/360.0;
+    }
+    
+    solverFK_->JntToCart(q_prev, X);
+
+    std::cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
+
+    double alpha, beta, delta; 
+    X.M.GetRPY(alpha, beta, delta);
+
+    std::cout << 360.0*alpha/(2*PI) << "," << 360.0*beta/(2*PI)<< "," << 360.0*delta/(2*PI)<< std::endl;
+
+    /*
+
+
+
     // Run IK solver
     solver_->CartToJnt(q_prev, X, q_cur);
 
@@ -67,26 +93,18 @@ int main( int argc, char** argv )
     X = p_in;
 
     //TIME
-    auto lastFrameTime = std::chrono::steady_clock::now();
     solver_->CartToJnt(q_prev, p_in, q_cur);
-    auto currentFrameTime = std::chrono::steady_clock::now();
-    std::chrono::duration<double> deltaTime = currentFrameTime - lastFrameTime;
-    std::cout << "Delta Time: " << deltaTime.count() << " seconds" << std::endl;
 
     X.p = KDL::Vector(0.3, -1.0, 0.5);
     X.M = KDL::Rotation::RotX(KDL::PI*3.0/4.0);
     //KDL::JntArray q_out(chain_.getNrOfJoints());
 
-    Eigen::VectorXd K(7);
-
-    K = q_cur.data;
-
     for(int i = 0; i < 7; i++)
     {
       q_prev(i) = q_cur(i);
-      std::cout << K(i) << "," << q_cur(i) << ",";
+      std::cout << q_cur(i) << ",";
     }
- 
+ /*
     unsigned int i = 0;
     jac_solver.JntToJac(q_cur, jac);
 
@@ -98,7 +116,7 @@ int main( int argc, char** argv )
         }
         std::cout << std::endl;
     }
-    
+    */
 
     //double j1 = jac(1,1);
 

@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 #include <math.h>
-#include <cmath> 
 
 #include <ctime>
 #include <sstream>
@@ -51,7 +50,7 @@
 #include "../include/structs.h"
 #include "../include/inverse_kinematics.h"
 #include "../include/dataLogger.h"
-#include "../include/safety.h"
+
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -65,21 +64,19 @@ namespace k_api = Kinova::Api;
 #define PORT 10000
 #define PORT_REAL_TIME 10001
 
-#define DURATION 20             // Network timeout (seconds)
+#define DURATION 5             // Network timeout (seconds)
 
 float velocity = 20.0f;         // Default velocity of the actuator (degrees per seconds)
 float time_duration = DURATION; // Duration of the example (seconds)
 
-// Waiting time during actions
-const auto ACTION_WAITING_TIME = std::chrono::seconds(1);
-const double PI = 3.14159265358979323846;
+
 
 std::ofstream outputFile; //log file
-KDL::JntArray q(7);
-KDL::JntArray q_prev(7);
-KDL::Frame X;
 
-int64_t now = 0;
+
+
+// Waiting time during actions
+const auto ACTION_WAITING_TIME = std::chrono::seconds(1);
 
 // Create closure to set finished to true after an END or an ABORT
 std::function<void(k_api::Base::ActionNotification)> 
@@ -177,41 +174,11 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 {
     bool return_status = true;
 
-
-     //ADDED-----------------------------------
-
-    //KDL (KINEMATICS)
-    
-    const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
-
-    KDL::Chain chain_;
-    chain_ = loadKDLChain(urdf);
-    kdl_solvers solvers(chain_);
-
-    //logfile 
     openLogFile(&outputFile);
-
-    //control params
-    int jntNum = 7; //change joint to move
-    double q0 = 70.0; //change to joint limit (avoid collisions!)
-    double q1 = 110.0;
-    double rate = 0.0005; //rad/s
-    double A = (q1-q0)/2.0;
-    double A0 = (q1+q0)/2.0;
-    double qd = A0;
-
-    for(int i = 0; i < 7; i ++)
-    {
-        q(i) = 0.0;
-        q_prev(i) = 0.0;
-    }
-
-    solvers.FK_solver_pos->JntToCart(q, X);
-    solvers.IK_solver->CartToJnt(q_prev, X, q);
 
     // Move arm to ready position
     example_move_to_home_position(base);
-
+    
     k_api::BaseCyclic::Feedback base_feedback;
     k_api::BaseCyclic::Command  base_command;
 
@@ -220,7 +187,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     auto servoingMode = k_api::Base::ServoingModeInformation();
 
     int timer_count = 0;
-
+    int64_t now = 0;
     int64_t last = 0;
 
     int timeout = 0;
@@ -250,14 +217,8 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             //std::string serialized_data;
             //google::protobuf::util::MessageToJsonString(data.actuators(data.actuators_size() - 1), &serialized_data);
             //std::cout << serialized_data << std::endl << std::endl;
-            
-            for(int i = 0; i < 7; i ++)
-            {
-                q(i) = 2*PI*data.actuators(i).position()/360.0; //transfer feedback to kdl 
-            }
-            
-            writeDataToLog(&outputFile, data, now);
-            
+
+            writeDataToLog(&outputFile, data);
         };
 
         // Real-time loop
@@ -266,21 +227,13 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             now = GetTickUs();
             if(now - last > 1000)
             {
-
-                //POS = Asin(wt) + A0
-                qd = A*std::sin(rate*(double)timer_count) + A0; 
-                //std::cout << qd << std::endl;
-                solvers.FK_solver_pos->JntToCart(q, X);
-                solvers.IK_solver->CartToJnt(q_prev, X, q);
-                q_prev = q;
-
                 for(int i = 0; i < actuator_count; i++)
                 {
                     // Move only the last actuator to prevent collision
         		    if(i == actuator_count - 1)
         		    {
                         commands[i] += (0.001f * velocity);
-                    	base_command.mutable_actuators(i)->set_position(fmod(90.0, 360.0f));
+                    	base_command.mutable_actuators(i)->set_position(fmod(commands[i], 360.0f));
         		    }
                 }
 

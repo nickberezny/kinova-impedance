@@ -47,11 +47,15 @@
 
 #include <chrono>
 
+#include <Eigen/Dense>
+#include <unsupported/Eigen/MatrixFunctions>
+
+
 #include "utilities.h"
 #include "../include/structs.h"
 #include "../include/inverse_kinematics.h"
 #include "../include/dataLogger.h"
-#include "../include/safety.h"
+#include "../include/admittance.h"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -61,11 +65,13 @@
 #include <time.h>
 
 namespace k_api = Kinova::Api;
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
 
 #define PORT 10000
 #define PORT_REAL_TIME 10001
 
-#define DURATION 20             // Network timeout (seconds)
+#define DURATION 5             // Network timeout (seconds)
 
 float velocity = 20.0f;         // Default velocity of the actuator (degrees per seconds)
 float time_duration = DURATION; // Duration of the example (seconds)
@@ -79,7 +85,10 @@ KDL::JntArray q(7);
 KDL::JntArray q_prev(7);
 KDL::Frame X;
 
-int64_t now = 0;
+MatrixXd Ad(2, 2);
+VectorXd Bd(2);
+VectorXd Xv(1);
+VectorXd F(1);
 
 // Create closure to set finished to true after an END or an ABORT
 std::function<void(k_api::Base::ActionNotification)> 
@@ -177,38 +186,6 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 {
     bool return_status = true;
 
-
-     //ADDED-----------------------------------
-
-    //KDL (KINEMATICS)
-    
-    const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
-
-    KDL::Chain chain_;
-    chain_ = loadKDLChain(urdf);
-    kdl_solvers solvers(chain_);
-
-    //logfile 
-    openLogFile(&outputFile);
-
-    //control params
-    int jntNum = 7; //change joint to move
-    double q0 = 70.0; //change to joint limit (avoid collisions!)
-    double q1 = 110.0;
-    double rate = 0.0005; //rad/s
-    double A = (q1-q0)/2.0;
-    double A0 = (q1+q0)/2.0;
-    double qd = A0;
-
-    for(int i = 0; i < 7; i ++)
-    {
-        q(i) = 0.0;
-        q_prev(i) = 0.0;
-    }
-
-    solvers.FK_solver_pos->JntToCart(q, X);
-    solvers.IK_solver->CartToJnt(q_prev, X, q);
-
     // Move arm to ready position
     example_move_to_home_position(base);
 
@@ -220,10 +197,25 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     auto servoingMode = k_api::Base::ServoingModeInformation();
 
     int timer_count = 0;
-
+    int64_t now = 0;
     int64_t last = 0;
 
     int timeout = 0;
+
+
+     //ADDED-----------------------------------
+
+    //KDL (KINEMATICS)
+    const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
+
+    KDL::Chain chain_;
+    chain_ = loadKDLChain(urdf);
+    kdl_solvers solvers(chain_);
+
+    //logfile 
+    openLogFile(&outputFile);
+
+    
 
     std::cout << "Initializing the arm for velocity low-level control example" << std::endl;
     try
@@ -250,14 +242,13 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             //std::string serialized_data;
             //google::protobuf::util::MessageToJsonString(data.actuators(data.actuators_size() - 1), &serialized_data);
             //std::cout << serialized_data << std::endl << std::endl;
-            
+
             for(int i = 0; i < 7; i ++)
             {
-                q(i) = 2*PI*data.actuators(i).position()/360.0; //transfer feedback to kdl 
+                q(i) = data.actuators(i).position(); //transfer feedback to kdl 
             }
-            
-            writeDataToLog(&outputFile, data, now);
-            
+
+            writeDataToLog(&outputFile, data);
         };
 
         // Real-time loop
@@ -267,10 +258,9 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             if(now - last > 1000)
             {
 
-                //POS = Asin(wt) + A0
-                qd = A*std::sin(rate*(double)timer_count) + A0; 
-                //std::cout << qd << std::endl;
-                solvers.FK_solver_pos->JntToCart(q, X);
+                Xv = virtualTrajectory(Ad, Bd, F, Xv); //update virtual trajectory
+                X.p.data[0] = Xv(0);
+
                 solvers.IK_solver->CartToJnt(q_prev, X, q);
                 q_prev = q;
 
@@ -280,7 +270,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
         		    if(i == actuator_count - 1)
         		    {
                         commands[i] += (0.001f * velocity);
-                    	base_command.mutable_actuators(i)->set_position(fmod(90.0, 360.0f));
+                    	base_command.mutable_actuators(i)->set_position(fmod(commands[i], 360.0f));
         		    }
                 }
 
@@ -322,6 +312,26 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 int main(int argc, char **argv)
 {
     auto parsed_args = ParseExampleArguments(argc, argv);
+
+    //setup AC
+    Eigen::VectorXd K(1);
+    Eigen::VectorXd D(1);
+    Eigen::VectorXd M(1);
+
+    K << 10.0;
+    D << 2.5;
+    M << 2.0;
+
+    MatrixXd A(2, 2);
+
+    A = constructA(K,D,M,1);
+    Ad = discretizeA(A,1);
+    std::cout << Ad << std::endl;
+
+    Bd = discretizeB(M,Ad,A,1);
+    std::cout << Bd << std::endl;
+
+
 
     // Create API objects
     auto error_callback = [](k_api::KError err){ cout << "_________ callback error _________" << err.toString(); };

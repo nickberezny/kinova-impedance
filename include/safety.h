@@ -1,0 +1,1 @@
+bool checkCommandAngle(Eigen::VectorXd qcmd, Eigen::VectorXd qprev, int numJnts, double thresh);

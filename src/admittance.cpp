@@ -6,6 +6,7 @@
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
+/*
 int main() {
 
 	VectorXd K(2);
@@ -27,6 +28,7 @@ int main() {
 	std::cout << Bd << std::endl;
 
 }
+*/
 
 Eigen::VectorXd virtualTrajectory(Eigen::MatrixXd Ad, Eigen::VectorXd Bd, Eigen::VectorXd F, Eigen::VectorXd X)
 {
