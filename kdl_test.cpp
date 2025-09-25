@@ -23,6 +23,9 @@
 #include <stdio.h>
 #include <iostream>
 #include <chrono>
+
+#include "include/structs.h"
+#include "include/inverse_kinematics.h"
  
 using namespace KDL;
  
@@ -44,6 +47,9 @@ int main( int argc, char** argv )
     grav(1) = 0;
     grav(2) = -9.81; 
 
+
+    
+
     std::unique_ptr<KDL::ChainIkSolverPos_LMA> solver_;
     std::unique_ptr<KDL::ChainFkSolverPos_recursive> solverFK_;
     std::unique_ptr<KDL::ChainDynParam> dynParam_;
@@ -54,18 +60,22 @@ int main( int argc, char** argv )
     KDL::JntArray q_cur(7);
     KDL::JntArray dq(7);
 
+    chain_ = loadKDLChain(urdf);
+    kdl_solvers solvers(chain_);
+
     // Print basic information about the tree
     std::cout << "nb joints:        " << tree_.getNrOfJoints() << std::endl;
     std::cout << "nb segments:      " << tree_.getNrOfSegments() << std::endl;
     std::cout << "root segment:     " << tree_.getRootSegment()->first
               << std::endl;
 
-    tree_.getChain("base_link", "EndEffector_Link", chain_);
+    //tree_.getChain("base_link", "EndEffector_Link", chain_);
     std::cout << "chain nb joints:  " << chain_.getNrOfJoints() << std::endl;
 
     KDL::Jacobian jac(chain_.getNrOfJoints());
     solver_ = std::make_unique<KDL::ChainIkSolverPos_LMA>(chain_);
-    solverFK_ = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
+    //solverFK_ = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
+    solvers.FK_solver_pos = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
     KDL::ChainJntToJacSolver jac_solver(chain_);
     dynParam_ = std::make_unique<KDL::ChainDynParam>(chain_, grav);
    
@@ -106,7 +116,8 @@ int main( int argc, char** argv )
         dq(i) = 2*PI*dQ(i)/360.0;
     }
 
-    solverFK_->JntToCart(q_prev, X);
+    solvers.FK_solver_pos->JntToCart(q_prev, X);
+    std::cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
 
 
     solver_->CartToJnt(q_prev, X, q_cur);
@@ -119,10 +130,15 @@ int main( int argc, char** argv )
 
     for(int i = 0; i < 500; i++)
     {
-        X.p(0) = 0.46 + 0.001*(double(i));
+        X.p(0) = 0.46 + 0.0002*(double(i));
         solver_->CartToJnt(q_prev, X, q_cur);
+        std::cout << 360.0*q_cur(0)/(2.0*PI) << ",";
         std::cout << 360.0*q_cur(1)/(2.0*PI) << ",";
+        std::cout << 360.0*q_cur(2)/(2.0*PI) << ",";
         std::cout << 360.0*q_cur(3)/(2.0*PI) << ",";
+        std::cout << 360.0*q_cur(4)/(2.0*PI) << ",";
+        std::cout << 360.0*q_cur(5)/(2.0*PI) << ",";
+        std::cout << 360.0*q_cur(6)/(2.0*PI) << ",";
         /*
         for(int i = 0; i < 7; i++)
         {

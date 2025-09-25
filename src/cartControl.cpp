@@ -188,14 +188,19 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     chain_ = loadKDLChain(urdf);
     kdl_solvers solvers(chain_);
 
+    solvers.FK_solver_pos = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
+    solvers.IK_solver = std::make_unique<KDL::ChainIkSolverPos_LMA>(chain_);
+
     //logfile 
     openLogFile(&outputFile);
+
+    double alpha, beta, delta; 
 
     //control params
     int jntNum = 7; //change joint to move
     double x0 = 0.36; //change to joint limit (avoid collisions!)
     double x1 = 0.56;
-    double rate = 0.0005; //rad/s
+    double rate = 0.00005; //rad/s
     double A = (x1-x0)/2.0;
     double A0 = (x1+x0)/2.0;
     double xd = A0;
@@ -212,11 +217,19 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     for(int i = 0; i < 7; i++)
     {
         q_prev(i) = 2*PI*Q(i)/360.0;
+        q(i) = q_prev(i);
+    }
+
+    for(int i = 0; i < 7; i++)
+    {
+        //std::cout << q_prev(i) << ",";
+        
     }
 
     solvers.FK_solver_pos->JntToCart(q_prev, X);
-    solvers.IK_solver->CartToJnt(q_prev, X, q);
-    q_prev = q;
+    cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
+    //solvers.IK_solver->CartToJnt(q_prev, X, q);
+    //q_prev = q;
 
     // Move arm to ready position
     example_move_to_home_position(base);
@@ -262,7 +275,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             
             for(int i = 0; i < 7; i ++)
             {
-                q(i) = 2*PI*data.actuators(i).position()/360.0; //transfer feedback to kdl 
+                q(i) = PI*data.actuators(i).position()/180.0; //transfer feedback to kdl 
             }
             
             writeDataToLog(&outputFile, data, now);
@@ -278,7 +291,8 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
                 //POS = Asin(wt) + A0
                 xd = A*std::sin(rate*(double)timer_count) + A0; 
-                //std::cout << qd << std::endl;
+
+                std::cout << xd << std::endl;
                 
                 X.p(0) = xd;
                 q_prev = q;
@@ -288,10 +302,19 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 {
                     for(int i = 0; i < actuator_count; i++)
                     {
-                        
-                        base_command.mutable_actuators(i)->set_position(fmod(q(i), 360.0f));
+                        //std::cout << fmod(180.0*q(i)/PI, 360.0f) << ",";
+                        base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
                         
                     }
+
+                //std::cout << std::endl;
+                   // cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
+
+
+                   // X.M.GetRPY(alpha, beta, delta);
+
+                  //  std::cout << 360.0*alpha/(2*PI) << "," << 360.0*beta/(2*PI)<< "," << 360.0*delta/(2*PI)<< std::endl;
+
                 }
 
                 try

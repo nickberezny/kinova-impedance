@@ -22,7 +22,7 @@ eigen:
 	$(CC) $(INCLUDES) eigen_test.cpp -o build/eigen_test
 
 kdl:
-	$(CC) $(INCLUDES) kdl_test.cpp $(LIBS)  -o build/kdl_test
+	$(CC) $(INCLUDES) src/inverse_kinematics.cpp kdl_test.cpp $(LIBS)  -o build/kdl_test
 
 adm_test: 
 	$(CC) $(INCLUDES) src/admittance.cpp $(LIBS)  -o build/adm_test
