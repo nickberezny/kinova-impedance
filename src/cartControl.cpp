@@ -77,6 +77,7 @@ const double PI = 3.14159265358979323846;
 std::ofstream outputFile; //log file
 KDL::JntArray q(7);
 KDL::JntArray q_prev(7);
+KDL::JntArray dq(7);
 KDL::Frame X;
 
 int64_t now = 0;
@@ -194,40 +195,16 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     //logfile 
     openLogFile(&outputFile);
 
-    double alpha, beta, delta; 
-
-    //control params
-    int jntNum = 7; //change joint to move
-    double x0 = 0.36; //change to joint limit (avoid collisions!)
-    double x1 = 0.56;
-    double rate = 0.00005; //rad/s
-    double A = (x1-x0)/2.0;
-    double A0 = (x1+x0)/2.0;
-    double xd = A0;
-
     for(int i = 0; i < 7; i ++)
     {
         q(i) = 0.0;
         q_prev(i) = 0.0;
     }
 
-    Eigen::VectorXd Q(7);
-    Q << 360.0, 15.017, 180.0, 230.088, 0.0, 55.0, 90.0; //360.0, 15.017, 180.0, 242.088, 0.0, 55.0, 90.0;
+    //Eigen::VectorXd Q(7);
+    //Q << 360.0, 15.017, 180.0, 230.088, 0.0, 55.0, 90.0; //360.0, 15.017, 180.0, 242.088, 0.0, 55.0, 90.0;
 
-    for(int i = 0; i < 7; i++)
-    {
-        q_prev(i) = 2*PI*Q(i)/360.0;
-        q(i) = q_prev(i);
-    }
-
-    for(int i = 0; i < 7; i++)
-    {
-        //std::cout << q_prev(i) << ",";
-        
-    }
-
-    solvers.FK_solver_pos->JntToCart(q_prev, X);
-    cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
+    //cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
     //solvers.IK_solver->CartToJnt(q_prev, X, q);
     //q_prev = q;
 
@@ -262,7 +239,27 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
         {
             commands.push_back(base_feedback.actuators(i).position());
             base_command.add_actuators()->set_position(base_feedback.actuators(i).position());
+            q(i) = PI*base_feedback.actuators(i).position()/180.0;
+            q_prev(i) = q(i);
         }
+
+        solvers.FK_solver_pos->JntToCart(q_prev, X);
+
+        //control params
+        int jntNum = 7; //change joint to move
+        int ctlAxis = 2;
+        double x0 = X.p(ctlAxis); //change to joint limit (avoid collisions!)
+        double x1 = X.p(ctlAxis)+0.1;
+        double rate = 0.002; //rad/s
+        double A = (x1-x0)/2.0;
+        double A0 = (x1+x0)/2.0;
+        double xd = A0;
+
+        time_duration = 4*PI/(1000.0*rate); //do 2 cycles
+
+        std::cout << "time duration:" << time_duration << std::endl;
+
+        std::cout << x0 << "," << x1 << "," << X.p(0) << std::endl;
 
         // Define the callback function used in Refresh_callback
         auto lambda_fct_callback = [](const Kinova::Api::Error &err, const k_api::BaseCyclic::Feedback data)
@@ -276,6 +273,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             for(int i = 0; i < 7; i ++)
             {
                 q(i) = PI*data.actuators(i).position()/180.0; //transfer feedback to kdl 
+                dq(i) = PI*data.actuators(i).velocity()/180.0; 
             }
             
             writeDataToLog(&outputFile, data, now);
@@ -290,31 +288,62 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             {
 
                 //POS = Asin(wt) + A0
-                xd = A*std::sin(rate*(double)timer_count) + A0; 
+                xd = A*std::sin(rate*(double)timer_count- PI/2.0) + A0; 
 
-                std::cout << xd << std::endl;
+                //std::cout << xd << std::endl;
                 
-                X.p(0) = xd;
+                X.p(ctlAxis) = xd;
                 q_prev = q;
                 solvers.IK_solver->CartToJnt(q_prev, X, q);
+
+                if(!checkVelocities(dq.data, 7, 1.5)) //about 86 deg/s
+                {
+                    servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
+                    base->SetServoingMode(servoingMode);
+
+                    std::cout << "Exceeded max angular vel" << std::endl;
+                    
+                    for(int i = 0; i<7; i++)
+                    {
+                        std::cout<<dq(i)<<std::endl;
+                    }
+
+                    // Wait for a bit
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+                    return return_status;
+                }
+
                 
-                if(checkCommandAngle(q.data, q_prev.data, 7, 0.01))
+                if(checkCommandAngle(q.data, q_prev.data, 7, 0.006, 0.008)) 
                 {
                     for(int i = 0; i < actuator_count; i++)
                     {
+                        if(q(i) < 0.0) q(i) = q(i) + 2*PI; 
                         //std::cout << fmod(180.0*q(i)/PI, 360.0f) << ",";
                         base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
                         
                     }
+                    //std::cout << std::endl;
+                }
+                else
+                {
 
-                //std::cout << std::endl;
-                   // cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
 
+                    servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
+                    base->SetServoingMode(servoingMode);
 
-                   // X.M.GetRPY(alpha, beta, delta);
+                    std::cout << "Exceeded command threshold" << std::endl;
+                    
+                    for(int i = 0; i<7; i++)
+                    {
+                        std::cout<<q(i)<<","<<q_prev(i)<<std::endl;
+                    }
 
-                  //  std::cout << 360.0*alpha/(2*PI) << "," << 360.0*beta/(2*PI)<< "," << 360.0*delta/(2*PI)<< std::endl;
+                    // Wait for a bit
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
+                    return return_status;
                 }
 
                 try
