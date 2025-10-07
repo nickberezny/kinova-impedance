@@ -11,29 +11,40 @@ using Eigen::VectorXd;
 
 int main() {
 
-	VectorXd K(2);
-	K << 2.0, 3.5;
-	VectorXd D(2);
-	D << 1.0, 4.5;
-	VectorXd M(2);
-	M << 0.5, 0.75;
+	VectorXd K(1);
+	K << 0.01;
+	VectorXd D(1);
+	D << 100.0;
+	VectorXd M(1);
+	M << 1.0;
 
-	MatrixXd A(4, 4);
-	MatrixXd Ad(4, 4);
-	VectorXd Bd(4);
+	MatrixXd A(2, 2);
+	MatrixXd Ad(2, 2);
+	VectorXd Bd(2);
 
-	A = constructA(K,D,M,2);
-	Ad = discretizeA(A,2);
+	A = constructA(K,D,M,1);
+	std::cout << A << std::endl;
+	Ad = discretizeA(A,1);
 	std::cout << Ad << std::endl;
 
-	Bd = discretizeB(M,Ad,A,2);
+	Bd = discretizeB(M,Ad,A,1);
 	std::cout << Bd << std::endl;
+
+	VectorXd Xv(2);
+	Xv << 1.0,0.0;
+
+	VectorXd F(1);
+	F << 0.0;
+
+	std::cout << Xv << std::endl;
+	Xv = Ad*Xv;
+	std::cout << Xv << std::endl;
 
 }
 
-Eigen::VectorXd virtualTrajectory(Eigen::MatrixXd Ad, Eigen::VectorXd Bd, Eigen::VectorXd F, Eigen::VectorXd X)
+Eigen::VectorXd virtualTrajectory(Eigen::MatrixXd Ad, Eigen::VectorXd Bd, Eigen::VectorXd F, Eigen::VectorXd X,Eigen::VectorXd X0)
 {
-	return Ad*X + Bd*F;
+	return X0 + Ad*(X-X0) + Bd*F;
 }
 
 Eigen::MatrixXd discretizeB(Eigen::VectorXd M, Eigen::MatrixXd Ad, Eigen::MatrixXd A, const int dim)
@@ -72,8 +83,8 @@ Eigen::MatrixXd constructA(Eigen::VectorXd K, Eigen::VectorXd D, Eigen::VectorXd
 
 		for(int j = 0; j < 2*dim; j++)
 		{
-			if(j == 2*i) A(2*i+1,j) = -D(i)/M(i);
-			else if(j == 2*i+1) A(2*i+1,j) = -K(i)/M(i);
+			if(j == 2*i+1) A(2*i+1,j) = -D(i)/M(i);
+			else if(j == 2*i) A(2*i+1,j) = -K(i)/M(i);
 			else A(2*i+1,j) = 0.0;
 		}
 	}
