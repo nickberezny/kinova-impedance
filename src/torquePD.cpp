@@ -265,9 +265,12 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
 
                 // First actuator torque command is set to last actuator torque measure times an amplification
                 
-                tor_cmd=init_first_torque + (torque_amplification * (base_feedback.actuators(actuator_count - 1).torque() - init_last_torque));
+                //tor_cmd=init_first_torque + (torque_amplification * (base_feedback.actuators(actuator_count - 1).torque() - init_last_torque));
                 //base_command.mutable_actuators(0)->set_torque_joint(init_first_torque + (torque_amplification * (base_feedback.actuators(actuator_count - 1).torque() - init_last_torque)));
                 std::cout << tor_cmd << std::endl;
+
+                tor_cmd = 0.01*(1000*(0.5-base_feedback.actuators(6).position()) - 500*(base_feedback.actuators(6).velocity()));
+                
                 base_command.mutable_actuators(0)->set_torque_joint(tor_cmd);
 
 
