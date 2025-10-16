@@ -79,7 +79,20 @@ int main( int argc, char** argv )
     KDL::ChainJntToJacSolver jac_solver(chain_);
     dynParam_ = std::make_unique<KDL::ChainDynParam>(chain_, grav);
    
+    KDL::Wrench Fext;
+    KDL::Wrench Fbase;
 
+    KDL::Vector tor;
+    tor(0) = 0;
+    tor(1) = 0;
+    tor(2) = 0;
+    KDL::Vector force;
+    force(0) = 0;
+    force(1) = 0;
+    force(2) = 12.34;
+
+    Fext.torque = tor;
+    Fext.force = force;
 
     KDL::Rotation R;
     R.DoRotX(PI/2.0);
@@ -97,11 +110,9 @@ int main( int argc, char** argv )
     q_prev(6) = PI/2.0;
 
 
-    
 
-    
     Eigen::VectorXd Q(7);
-    Q << 360.0, 15.017, 180.0, 230.088, 0.0, 55.0, 90.0; //360.0, 15.017, 180.0, 242.088, 0.0, 55.0, 90.0;
+    Q << 360.0, 15.017, 180.0, 230.088, 0.0, 55.0-90.0, 90.0; //360.0, 15.017, 180.0, 242.088, 0.0, 55.0, 90.0;
 
     for(int i = 0; i < 7; i++)
     {
@@ -119,6 +130,12 @@ int main( int argc, char** argv )
     solvers.FK_solver_pos->JntToCart(q_prev, X);
     std::cout << X.p(0) << "," << X.p(1) << "," << X.p(2) << std::endl;
 
+    Fbase = X*Fext;
+
+    for(int i = 0; i < 3; i++)
+    {
+        std::cout << Fbase.force[i] << ",";
+    }
 
     solver_->CartToJnt(q_prev, X, q_cur);
 
@@ -132,6 +149,15 @@ int main( int argc, char** argv )
     {
         X.p(0) = 0.46 + 0.0002*(double(i));
         solver_->CartToJnt(q_prev, X, q_cur);
+
+        Fbase = X.Inverse()*Fext;
+/*
+        for(int i = 0; i < 3; i++)
+        {
+            std::cout << Fbase.force[i] << ",";
+        }
+
+        
         std::cout << 360.0*q_cur(0)/(2.0*PI) << ",";
         std::cout << 360.0*q_cur(1)/(2.0*PI) << ",";
         std::cout << 360.0*q_cur(2)/(2.0*PI) << ",";
@@ -139,14 +165,14 @@ int main( int argc, char** argv )
         std::cout << 360.0*q_cur(4)/(2.0*PI) << ",";
         std::cout << 360.0*q_cur(5)/(2.0*PI) << ",";
         std::cout << 360.0*q_cur(6)/(2.0*PI) << ",";
-        /*
+        
         for(int i = 0; i < 7; i++)
         {
             std::cout << 360.0*q_cur(i)/(2.0*PI) << ",";
         }
-        */
+        
         std::cout << std::endl;
-            
+           */ 
     }
 
     /*

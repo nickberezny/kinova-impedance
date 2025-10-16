@@ -56,6 +56,8 @@
 #include "../include/inverse_kinematics.h"
 #include "../include/dataLogger.h"
 #include "../include/admittance.h"
+#include "../include/forceSensor.h"
+
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -79,6 +81,8 @@ float time_duration = DURATION; // Duration of the example (seconds)
 // Waiting time during actions
 const auto ACTION_WAITING_TIME = std::chrono::seconds(1);
 const double PI = 3.14159265358979323846;
+
+struct ForceSensorData *fdata;
 
 std::ofstream outputFile; //log file
 KDL::JntArray q(7);
@@ -187,6 +191,12 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     bool return_status = true;
 
     // Move arm to ready position
+
+    initForceSensorUDP(forceSensorData)
+    startForceSensorStream(forceSensorData);
+     
+    tareForceSensor(forceSensorData);
+
     example_move_to_home_position(base);
 
     k_api::BaseCyclic::Feedback base_feedback;
@@ -257,7 +267,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             now = GetTickUs();
             if(now - last > 1000)
             {
-
+                readFroceSensor(forceSensorData);
                 Xv = virtualTrajectory(Ad, Bd, F, Xv); //update virtual trajectory
                 X.p.data[0] = Xv(0);
 
@@ -331,7 +341,7 @@ int main(int argc, char **argv)
     Bd = discretizeB(M,Ad,A,1);
     std::cout << Bd << std::endl;
 
-
+    fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
 
     // Create API objects
     auto error_callback = [](k_api::KError err){ cout << "_________ callback error _________" << err.toString(); };

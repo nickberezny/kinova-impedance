@@ -33,7 +33,10 @@ kdl:
 	$(CC) $(INCLUDES) src/inverse_kinematics.cpp kdl_test.cpp $(LIBS)  -o build/kdl_test
 
 adm_test: 
-	$(CC) $(INCLUDES) src/admittance.cpp $(LIBS)  -o build/adm_test
+	$(CC) $(INCLUDES) src/admittance.cpp $(LIBS) -o build/adm_test
+
+forceSensor:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/forceSensor.c $(LIBS) -o build/force 
 
 kinova:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES)  src/utilities.cpp src/main.cpp $(LIBS) -o build/kinova 
