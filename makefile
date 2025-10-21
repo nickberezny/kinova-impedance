@@ -13,11 +13,11 @@ AdmCartControl:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/AdmCartControl.cpp $(LIBS) -o build/AdmCartControl
 
 cartControl:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/cartControl.cpp $(LIBS) -o build/cartControl
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/fullCartControl.cpp $(LIBS) -o build/fullCartControl
 
 
 jointJogger:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/jointJogger.cpp $(LIBS) -o build/jointJogger
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/jointJogger.cpp $(LIBS) -o build/jointJogger
 
 admittance:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/admittance.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_main.cpp $(LIBS) -o build/admittance

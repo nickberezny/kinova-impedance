@@ -6,18 +6,21 @@
 #include <sys/stat.h> 
 #include <cassert>
 #include <cstdlib>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include <BaseClientRpc.h>
 #include <BaseCyclicClientRpc.h>
 
 #include "../include/dataLogger.h"
+#include "../include/forceSensor.h"
 
 #define NMJNTS 7;
 
 namespace k_api = Kinova::Api;
 
 
-void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedback data, int64_t now)
+void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedback data, struct ForceSensorData * forceSensorData, int64_t now)
 {
     if ((*outputFile).is_open()) {
 
@@ -30,6 +33,9 @@ void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedbac
             (*outputFile) << data.actuators(i).torque() << ",";
             (*outputFile) << data.actuators(i).current_motor() << ",";
         }
+
+        (*outputFile) << forceSensorData->F[0] << "," << forceSensorData->F[1] << "," << forceSensorData->F[2] << ",";
+        (*outputFile) << forceSensorData->T[0] << "," << forceSensorData->T[1] << "," << forceSensorData->T[2];
 
         (*outputFile) << std::endl;
     }

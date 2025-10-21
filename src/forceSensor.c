@@ -12,8 +12,9 @@
 #include <sys/time.h>
 #include "../include/forceSensor.h"
 
-struct ForceSensorData *fdata;
 /*
+struct ForceSensorData *fdata;
+
 int main()
 {
     fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
@@ -115,6 +116,8 @@ void readFroceSensor(struct ForceSensorData * forceSensorData)
         i = i + 1;
         //printf("%d\n",i++);
     }
+
+    //printf("%d\n",forceSensorData->msg[1]);
 
     //uint64_t time_test = recv_buffer[2] + (recv_buffer[3] << 16) + (recv_buffer[4] << 32) + (recv_buffer[5] << 48);
     //int32_t force_test = recv_buffer[15] + (recv_buffer[16] << 16);

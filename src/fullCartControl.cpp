@@ -140,13 +140,14 @@ void example_move_to_home_position(k_api::Base::BaseClient* base)
     // Move arm to ready position
     std::cout << "Moving the arm to a safe position" << std::endl;
     auto action_type = k_api::Base::RequestedActionType();
-    action_type.set_action_type(k_api::Base::REACH_JOINT_ANGLES);
+    action_type.set_action_type(k_api::Base::REACH_POSE);
     auto action_list = base->ReadAllActions(action_type);
     auto action_handle = k_api::Base::ActionHandle();
     action_handle.set_identifier(0);
     for (auto action : action_list.action_list()) 
     {
-        if (action.name() == "Home") 
+        std::cout << action.name() << ",";
+        if (action.name() == "TableHome") //changed!!
         {
             action_handle = action.handle();
         }
@@ -186,7 +187,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
     //KDL (KINEMATICS)
 
-        fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
+    fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
 
     initForceSensorUDP(fdata);
     tareForceSensor(fdata);
@@ -268,18 +269,28 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
         //control params
         int jntNum = 7; //change joint to move
         int ctlAxis = 2;
-        double x0 = X.p(ctlAxis); //change to joint limit (avoid collisions!)
-        double x1 = X.p(ctlAxis)+0.1;
-        double rate = 0.0002; //rad/s
-        double A = (x1-x0)/2.0;
-        double A0 = (x1+x0)/2.0;
-        double xd = A0;
 
+        double x0[3];
+        double x1[3];
+        double A[3];
+        double A0[3];
+        double xd[3];
+
+        for(int i = 0; i < 3; i++)
+        {
+            x0[i] = X.p(i); //change to joint limit (avoid collisions!)
+            x1[i] = X.p(i)+0.1;
+
+            A[i] = (x1[i]-x0[i])/2.0;
+            A0[i] = (x1[i]+x0[i])/2.0;
+            xd[i] = A0[i];
+
+
+        }
+        double rate = 0.0006; //rad/s
         time_duration = 4*PI/(1000.0*rate); //do 2 cycles
-
         std::cout << "time duration:" << time_duration << std::endl;
-
-        std::cout << x0 << "," << x1 << "," << X.p(0) << std::endl;
+        //std::cout << x0 << "," << x1 << "," << X.p(0) << std::endl;
 
         // Define the callback function used in Refresh_callback
         auto lambda_fct_callback = [](const Kinova::Api::Error &err, const k_api::BaseCyclic::Feedback data)
@@ -312,15 +323,19 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 readFroceSensor(fdata);
                 //POS = Asin(wt) + A0
 
-                xd = A*std::sin(rate*(double)timer_count- PI/2.0) + A0; 
+                for(int ii = 0; ii < 3; ii++)
+                {
+                    xd[ii] = A[ii]*std::sin(rate*(double)timer_count- PI/2.0) + A0[ii]; 
+                    if(ii == 2) X.p(ii) = xd[ii]; //only z-axis
 
-                //std::cout << xd << std::endl;
-                
-                X.p(ctlAxis) = xd;
+                    //std::cout << xd[ii] << ",";
+                }
+
+               // std::cout << std::endl;
                 q_prev = q;
                 solvers.IK_solver->CartToJnt(q_prev, X, q);
-
-                if(!checkCartPos(X.p(0),X.p(1),X.p(3)))
+                /*
+                if(!checkCartPos(X.p(0),X.p(1),X.p(2)))
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
                     base->SetServoingMode(servoingMode);
@@ -331,7 +346,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
                     return return_status;
                 }
-
+    */
                 if(!checkVelocities(dq.data, 7, 1.5)) //about 86 deg/s
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);

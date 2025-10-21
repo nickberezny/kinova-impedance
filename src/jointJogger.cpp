@@ -52,6 +52,7 @@
 #include "../include/inverse_kinematics.h"
 #include "../include/dataLogger.h"
 #include "../include/safety.h"
+#include "../include/forceSensor.h"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -77,7 +78,10 @@ const double PI = 3.14159265358979323846;
 std::ofstream outputFile; //log file
 KDL::JntArray q(7);
 KDL::JntArray q_prev(7);
+KDL::JntArray qcmd(7);
 KDL::Frame X;
+
+struct ForceSensorData *fdata;
 
 int64_t now = 0;
 
@@ -176,10 +180,20 @@ void example_move_to_home_position(k_api::Base::BaseClient* base)
 bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyclicClient* base_cyclic)
 {
     bool return_status = true;
+    k_api::BaseCyclic::Feedback base_feedback;
+    k_api::BaseCyclic::Command  base_command;
+    std::vector<float> commands;
+
+    fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
+
+    initForceSensorUDP(fdata);
+    tareForceSensor(fdata);
+    sleep(2);
 
 
      //ADDED-----------------------------------
 
+  
     //KDL (KINEMATICS)
     
     const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
@@ -191,31 +205,20 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     //logfile 
     openLogFile(&outputFile);
 
+    int jntNum = 7;
+
+ 
+
     //control params
-    int jntNum = 7; //change joint to move
-    double q0 = 70.0; //change to joint limit (avoid collisions!)
-    double q1 = 110.0;
-    double rate = 0.0005; //rad/s
-    double A = (q1-q0)/2.0;
-    double A0 = (q1+q0)/2.0;
-    double qd = A0;
+     //change joint to move
 
-    for(int i = 0; i < 7; i ++)
-    {
-        q(i) = 0.0;
-        q_prev(i) = 0.0;
-    }
-
-    solvers.FK_solver_pos->JntToCart(q, X);
-    solvers.IK_solver->CartToJnt(q_prev, X, q);
+    double rate = 0.0002; //rad/s
+    time_duration = 4*PI/(1000.0*rate);
 
     // Move arm to ready position
     example_move_to_home_position(base);
 
-    k_api::BaseCyclic::Feedback base_feedback;
-    k_api::BaseCyclic::Command  base_command;
 
-    std::vector<float> commands;
 
     auto servoingMode = k_api::Base::ServoingModeInformation();
 
@@ -240,6 +243,23 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
         {
             commands.push_back(base_feedback.actuators(i).position());
             base_command.add_actuators()->set_position(base_feedback.actuators(i).position());
+            q(i) = PI*base_feedback.actuators(i).position()/180.0;
+            q_prev(i) = q(i);
+        }
+
+        double q0;
+        double q1;
+        double A[7];
+        double A0[7];
+        double qd[7];
+
+        for(int i = 0; i < 7; i++)
+        {
+            q0 = q(i);
+            q1 = q(i) - PI/8.0;
+            A[i] = (q1-q0)/2.0;
+            A0[i] = (q1+q0)/2.0;
+            qd[i] = A0[i];
         }
 
         // Define the callback function used in Refresh_callback
@@ -256,7 +276,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 q(i) = 2*PI*data.actuators(i).position()/360.0; //transfer feedback to kdl 
             }
             
-            writeDataToLog(&outputFile, data, now);
+            writeDataToLog(&outputFile, data, fdata, now);
             
         };
 
@@ -268,20 +288,50 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             {
 
                 //POS = Asin(wt) + A0
-                qd = A*std::sin(rate*(double)timer_count) + A0; 
+                for(int ii = 0; ii < 7; ii++)
+                {
+                    qd[ii] = A[ii]*std::sin(rate*(double)timer_count- PI/2.0) + A0[ii]; 
+                    qcmd(ii) = qd[ii];
+                    if(qcmd(ii) < 0.0) qcmd(ii) = qcmd(ii) + 2*PI;
+                    if(qcmd(ii) > 2*PI) qcmd(ii)= qcmd(ii) - 2*PI;
+                    
+
+                }
+
                 //std::cout << qd << std::endl;
-                solvers.FK_solver_pos->JntToCart(q, X);
-                solvers.IK_solver->CartToJnt(q_prev, X, q);
+                //solvers.FK_solver_pos->JntToCart(q, X);
+                //solvers.IK_solver->CartToJnt(q_prev, X, q);
                 q_prev = q;
 
-                for(int i = 0; i < actuator_count; i++)
+                if(checkCommandAngle(qcmd.data, q_prev.data, 7, 0.01, 0.01)) 
                 {
-                    // Move only the last actuator to prevent collision
-        		    if(i == actuator_count - 1)
-        		    {
-                        commands[i] += (0.001f * velocity);
-                    	base_command.mutable_actuators(i)->set_position(fmod(90.0, 360.0f));
-        		    }
+                    for(int i = 0; i < actuator_count; i++)
+                    {
+                         
+                        //std::cout << fmod(180.0*qcmd(i)/PI, 360.0f)<< ",";
+                    	base_command.mutable_actuators(i)->set_position(fmod(180.0*qcmd(i)/PI, 360.0f));
+            		    
+                    }
+                     //std::cout << std::endl;                
+                }
+                else
+                {
+
+
+                    servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
+                    base->SetServoingMode(servoingMode);
+
+                    std::cout << "Exceeded command threshold" << std::endl;
+                    
+                    for(int i = 0; i<7; i++)
+                    {
+                        std::cout<<qcmd(i)<<","<<q_prev(i)<<std::endl;
+                    }
+
+                    // Wait for a bit
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+                    return return_status;
                 }
 
                 try
