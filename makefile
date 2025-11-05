@@ -8,13 +8,19 @@ LIBS=-L/usr/local/lib/ -L/home/nick/Documents/kinova_impedance/kortex_api/lib/re
 torControl:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/01-torque_control_cyclic.cpp $(LIBS) -o build/torControl
 
+ZAdmCartControl:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_1axis.cpp $(LIBS) -o build/ZAdmCartControl
+
 
 AdmCartControl:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/AdmCartControl.cpp $(LIBS) -o build/AdmCartControl
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_multiaxis.cpp $(LIBS) -o build/AdmCartControl
+
+followTrajectory:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/readCsv.cpp src/forceSensor.c src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/followTrajectory.cpp $(LIBS) -o build/followTrajectory
+
 
 cartControl:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/fullCartControl.cpp $(LIBS) -o build/fullCartControl
-
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/cartControl.cpp $(LIBS) -o build/CartControl
 
 jointJogger:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/jointJogger.cpp $(LIBS) -o build/jointJogger

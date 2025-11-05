@@ -53,6 +53,7 @@
 #include "../include/dataLogger.h"
 #include "../include/safety.h"
 #include "../include/forceSensor.h"
+#include "../include/admittance.h"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -62,6 +63,8 @@
 #include <time.h>
 
 namespace k_api = Kinova::Api;
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
 
 #define PORT 10000
 #define PORT_REAL_TIME 10001
@@ -270,25 +273,44 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
         int jntNum = 7; //change joint to move
         int ctlAxis = 2;
 
-        double x0[3];
-        double x1[3];
-        double A[3];
-        double A0[3];
-        double xd[3];
+        double F0 = -1.0;
+        double F1 = 1.0;
+        double A1 = (F1-F0)/2.0;
+        double A0 = (F1+F0)/2.0;
+        double Fd = 0.0;
 
-        for(int i = 0; i < 3; i++)
-        {
-            x0[i] = X.p(i); //change to joint limit (avoid collisions!)
-            x1[i] = X.p(i)+0.1;
+        //AC
+        double xd = X.p(ctlAxis);
 
-            A[i] = (x1[i]-x0[i])/2.0;
-            A0[i] = (x1[i]+x0[i])/2.0;
-            xd[i] = A0[i];
+        VectorXd Xv(2);
+        Xv << xd, 0;
+        VectorXd X0(2);
+        X0 << 0.05, 0;
+        VectorXd Fext(1);
+        Fext << 0.0;
+
+        VectorXd K(1);
+        K << 30.0;
+        VectorXd D(1);
+        D << 200.0;
+        VectorXd M(1);
+        M << 1.0;
+
+        Eigen::MatrixXd A(2, 2);
+        Eigen::MatrixXd Ad(2, 2);
+        Eigen::VectorXd Bd(2);
+
+        A = constructA(K, D, M, 1);
+        Ad = discretizeA(A, 1);
+        Bd = discretizeB(M, Ad, A, 1);
+
+        std::cout << Ad << std::endl;
 
 
-        }
-        double rate = 0.0015; //rad/s
-        time_duration = 4*PI/(1000.0*rate); //do 2 cycles
+        double x0 = X.p(ctlAxis); //change to joint limit (avoid collisions!)
+        
+        double rate = 0.00015; //rad/s
+        time_duration = 20.0;//4*PI/(1000.0*rate); //do 2 cycles
         std::cout << "time duration:" << time_duration << std::endl;
         //std::cout << x0 << "," << x1 << "," << X.p(0) << std::endl;
 
@@ -307,7 +329,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 dq(i) = PI*data.actuators(i).velocity()/180.0; 
             }
             
-            writeDataToLog(&outputFile, data, fdata, now);
+            writeDataToLog(&outputFile, data, fdata,  X.p(0), X.p(1), X.p(2), now);
             
         };
 
@@ -323,18 +345,22 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 readFroceSensor(fdata);
                 //POS = Asin(wt) + A0
 
-                for(int ii = 0; ii < 3; ii++)
-                {
-                    xd[ii] = A[ii]*std::sin(rate*(double)timer_count- PI/2.0) + A0[ii]; 
-                    if(ii == 2) X.p(ii) = xd[ii]; //only z-axis
+                //Fd = A1*std::sin(rate*(double)timer_count- PI/2.0) + A0; //set the virtual force (testing)
+                //Fext << Fd;//virt force
+                Fext << -fdata->F[2];
+                Xv = virtualTrajectory(Ad, Bd, Fext, Xv, X0);
+                xd = Xv(0);
+                //
+                //std::cout << xd << "," << Fext << std::endl;
+                
+                X.p(ctlAxis) = xd;
 
-                    //std::cout << xd[ii] << ",";
-                }
+                //X.p(ctlAxis) =  //only z-axis
 
                // std::cout << std::endl;
                 q_prev = q;
                 solvers.IK_solver->CartToJnt(q_prev, X, q);
-                /*
+                
                 if(!checkCartPos(X.p(0),X.p(1),X.p(2)))
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
@@ -346,7 +372,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
                     return return_status;
                 }
-    */
+    
                 if(!checkVelocities(dq.data, 7, 1.5)) //about 86 deg/s
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);

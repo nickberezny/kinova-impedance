@@ -53,6 +53,7 @@
 #include "../include/dataLogger.h"
 #include "../include/safety.h"
 #include "../include/forceSensor.h"
+#include "../include/readCsv.hpp"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -77,7 +78,7 @@ const double PI = 3.14159265358979323846;
 
 std::ofstream outputFile; //log file
 KDL::JntArray q(7);
-KDL::JntArray q_prev(7);
+KDL::JntArray q_cmd(7);
 KDL::JntArray dq(7);
 KDL::Frame X;
 
@@ -140,14 +141,14 @@ void example_move_to_home_position(k_api::Base::BaseClient* base)
     // Move arm to ready position
     std::cout << "Moving the arm to a safe position" << std::endl;
     auto action_type = k_api::Base::RequestedActionType();
-    action_type.set_action_type(k_api::Base::REACH_POSE);
+    action_type.set_action_type(k_api::Base::REACH_JOINT_ANGLES);
     auto action_list = base->ReadAllActions(action_type);
     auto action_handle = k_api::Base::ActionHandle();
     action_handle.set_identifier(0);
     for (auto action : action_list.action_list()) 
     {
         std::cout << action.name() << ",";
-        if (action.name() == "TableHome") //changed!!
+        if (action.name() == "Home") //changed!!
         {
             action_handle = action.handle();
         }
@@ -185,7 +186,12 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
      //ADDED-----------------------------------
 
-    //KDL (KINEMATICS)
+    std::vector<std::vector<double>> trajectory;
+    trajectory = readJointTrajectory();
+
+    int t_length = trajectory.size();
+
+    std::cout << t_length <<std::endl;
 
     fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
 
@@ -219,7 +225,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     for(int i = 0; i < 7; i ++)
     {
         q(i) = 0.0;
-        q_prev(i) = 0.0;
+        q_cmd(i) = 0.0;
     }
 
     //Eigen::VectorXd Q(7);
@@ -261,35 +267,15 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             commands.push_back(base_feedback.actuators(i).position());
             base_command.add_actuators()->set_position(base_feedback.actuators(i).position());
             q(i) = PI*base_feedback.actuators(i).position()/180.0;
-            q_prev(i) = q(i);
+            q_cmd(i) = q(i);
         }
 
-        solvers.FK_solver_pos->JntToCart(q_prev, X);
-
-        //control params
-        int jntNum = 7; //change joint to move
-        int ctlAxis = 2;
-
-        double x0[3];
-        double x1[3];
-        double A[3];
-        double A0[3];
-        double xd[3];
-
-        for(int i = 0; i < 3; i++)
-        {
-            x0[i] = X.p(i); //change to joint limit (avoid collisions!)
-            x1[i] = X.p(i)+0.1;
-
-            A[i] = (x1[i]-x0[i])/2.0;
-            A0[i] = (x1[i]+x0[i])/2.0;
-            xd[i] = A0[i];
+        solvers.FK_solver_pos->JntToCart(q, X);
 
 
-        }
         double rate = 0.0015; //rad/s
-        time_duration = 4*PI/(1000.0*rate); //do 2 cycles
-        std::cout << "time duration:" << time_duration << std::endl;
+        time_duration = t_length; //do 2 cycles
+        std::cout << "time duration:" << time_duration/1000.0 << std::endl;
         //std::cout << x0 << "," << x1 << "," << X.p(0) << std::endl;
 
         // Define the callback function used in Refresh_callback
@@ -307,33 +293,35 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 dq(i) = PI*data.actuators(i).velocity()/180.0; 
             }
             
-            writeDataToLog(&outputFile, data, fdata, now);
+            writeDataToLog(&outputFile, data, fdata, X.p(0), X.p(1), X.p(2), now);
             
         };
 
         startForceSensorStream(fdata);
 
         // Real-time loop
-        while(timer_count < (time_duration * 1000))
+        while(timer_count < (time_duration))
         {
             now = GetTickUs();
             if(now - last > 1000)
             {
 
                 readFroceSensor(fdata);
-                //POS = Asin(wt) + A0
+                
 
-                for(int ii = 0; ii < 3; ii++)
+                for(int i = 0; i < 7; i++)
                 {
-                    xd[ii] = A[ii]*std::sin(rate*(double)timer_count- PI/2.0) + A0[ii]; 
-                    if(ii == 2) X.p(ii) = xd[ii]; //only z-axis
-
-                    //std::cout << xd[ii] << ",";
+                    q_cmd(i) = trajectory[(int)timer_count][i];
                 }
 
+                //q_cmd(7) = q(7);
+                q_cmd(0) = q_cmd(0) + PI;
+
+                solvers.FK_solver_pos->JntToCart(q, X);
+                
                // std::cout << std::endl;
-                q_prev = q;
-                solvers.IK_solver->CartToJnt(q_prev, X, q);
+               // q_prev = q;
+               // solvers.IK_solver->CartToJnt(q_prev, X, q);
                 /*
                 if(!checkCartPos(X.p(0),X.p(1),X.p(2)))
                 {
@@ -366,13 +354,14 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 }
 
                 
-                if(checkCommandAngle(q.data, q_prev.data, 7, 0.006, 0.008)) 
+                if(checkCommandAngle(q.data, q_cmd.data, 7, 0.06, 0.08)) 
                 {
                     for(int i = 0; i < actuator_count; i++)
                     {
-                        if(q(i) < 0.0) q(i) = q(i) + 2*PI; 
+                        if(q_cmd(i) < 0.0) q_cmd(i) = q_cmd(i) + 2*PI; 
+                        //std::cout << fmod(180.0*q_cmd(i)/PI, 360.0f) << ",";
                         //std::cout << fmod(180.0*q(i)/PI, 360.0f) << ",";
-                        base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
+                        base_command.mutable_actuators(i)->set_position(fmod(180.0*q_cmd(i)/PI, 360.0f));
                         
                     }
                     //std::cout << std::endl;
@@ -388,7 +377,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                     
                     for(int i = 0; i<7; i++)
                     {
-                        std::cout<<q(i)<<","<<q_prev(i)<<std::endl;
+                        std::cout<<q(i)<<","<<q_cmd(i)<<std::endl;
                     }
 
                     // Wait for a bit

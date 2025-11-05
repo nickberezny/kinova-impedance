@@ -192,6 +192,8 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     tareForceSensor(fdata);
     sleep(2);
     
+    double alpha, beta, delta; 
+
     /*
     while(1)
     {
@@ -265,17 +267,19 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
         solvers.FK_solver_pos->JntToCart(q_prev, X);
 
+        X.M.GetRPY(alpha, beta, delta);
+
         //control params
         int jntNum = 7; //change joint to move
         int ctlAxis = 2;
-        double x0 = X.p(ctlAxis); //change to joint limit (avoid collisions!)
-        double x1 = X.p(ctlAxis)+0.1;
+        double x0 = delta;//X.p(ctlAxis); //change to joint limit (avoid collisions!)
+        double x1 = delta + 0.2;//X.p(ctlAxis)+0.1;
         double rate = 0.0002; //rad/s
         double A = (x1-x0)/2.0;
         double A0 = (x1+x0)/2.0;
         double xd = A0;
 
-        time_duration = 4*PI/(1000.0*rate); //do 2 cycles
+        time_duration = 2*PI/(1000.0*rate); //do 1 cycles
 
         std::cout << "time duration:" << time_duration << std::endl;
 
@@ -313,13 +317,16 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 //POS = Asin(wt) + A0
 
                 xd = A*std::sin(rate*(double)timer_count- PI/2.0) + A0; 
-
-                //std::cout << xd << std::endl;
+                X.M.GetRPY(alpha, beta, delta);
+                X.M.DoRotZ(xd - delta);
+                X.M.GetRPY(alpha, beta, delta);
+                std::cout << beta  << std::endl;
+                std::cout << delta  << std::endl;
                 
-                X.p(ctlAxis) = xd;
+                //X.p(ctlAxis) = xd;
                 q_prev = q;
                 solvers.IK_solver->CartToJnt(q_prev, X, q);
-
+/*
                 if(!checkCartPos(X.p(0),X.p(1),X.p(3)))
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
@@ -331,7 +338,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
                     return return_status;
                 }
-
+*/
                 if(!checkVelocities(dq.data, 7, 1.5)) //about 86 deg/s
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
@@ -356,11 +363,11 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                     for(int i = 0; i < actuator_count; i++)
                     {
                         if(q(i) < 0.0) q(i) = q(i) + 2*PI; 
-                        //std::cout << fmod(180.0*q(i)/PI, 360.0f) << ",";
-                        base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
+                        std::cout << fmod(180.0*q(i)/PI, 360.0f) << ",";
+                        //base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
                         
                     }
-                    //std::cout << std::endl;
+                    std::cout << std::endl;
                 }
                 else
                 {

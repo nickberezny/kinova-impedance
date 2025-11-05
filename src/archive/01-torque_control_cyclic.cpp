@@ -236,7 +236,7 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
         auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
         control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::TORQUE);
 
-        int first_actuator_device_id = 7;
+        int first_actuator_device_id = 1;
         actuator_config->SetControlMode(control_mode_message, first_actuator_device_id);
 
         // Initial delta between first and last actuator
@@ -246,6 +246,7 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
         float init_last_torque = base_feedback.actuators(actuator_count - 1).torque();
         float init_first_torque = -base_feedback.actuators(0).torque(); //Torque measure is reversed compared to actuator direction
         float torque_amplification = 2.0;
+        float tor_cmd = 0.0;
 
         std::cout << "Running torque control example for " << TIME_DURATION << " seconds" << std::endl;
 
@@ -260,15 +261,18 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
                 // Bonus: When doing this instead of disabling the following error, if communication is lost and first
                 //        actuator continues to move under torque command, resulting position error with command will
                 //        trigger a following error and switch back the actuator in position command to hold its position
-                base_command.mutable_actuators(6)->set_position(base_feedback.actuators(6).position());
+                base_command.mutable_actuators(0)->set_position(base_feedback.actuators(0).position());
 
                 // First actuator torque command is set to last actuator torque measure times an amplification
+                
+                tor_cmd=init_first_torque + (torque_amplification * (base_feedback.actuators(actuator_count - 1).torque() - init_last_torque));
                 //base_command.mutable_actuators(0)->set_torque_joint(init_first_torque + (torque_amplification * (base_feedback.actuators(actuator_count - 1).torque() - init_last_torque)));
-                base_command.mutable_actuators(6)->set_torque_joint(0.9);
+                std::cout << tor_cmd << std::endl;
+                base_command.mutable_actuators(0)->set_torque_joint(tor_cmd);
 
 
                 // First actuator position is sent as a command to last actuator
-                //base_command.mutable_actuators(actuator_count - 1)->set_position(base_feedback.actuators(0).position() - init_delta_position);
+                base_command.mutable_actuators(actuator_count - 1)->set_position(base_feedback.actuators(0).position() - init_delta_position);
 
                 // Incrementing identifier ensures actuators can reject out of time frames
                 base_command.set_frame_id(base_command.frame_id() + 1);

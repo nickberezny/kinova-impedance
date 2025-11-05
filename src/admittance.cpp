@@ -30,20 +30,24 @@ int main() {
 }
 */
 
-Eigen::VectorXd virtualTrajectory(Eigen::MatrixXd Ad, Eigen::VectorXd Bd, Eigen::VectorXd F, Eigen::VectorXd X,Eigen::VectorXd X0)
+Eigen::VectorXd virtualTrajectory(Eigen::MatrixXd Ad, Eigen::MatrixXd Bd, Eigen::VectorXd F, Eigen::VectorXd X,Eigen::VectorXd X0)
 {
 	return X0+Ad*(X-X0) + Bd*F;
 }
 
 Eigen::MatrixXd discretizeB(Eigen::VectorXd M, Eigen::MatrixXd Ad, Eigen::MatrixXd A, const int dim)
 {
-	VectorXd B(2*dim);
+	MatrixXd B(2*dim,dim);
 	Eigen::MatrixXd I = Eigen::MatrixXd::Identity(2*dim, 2*dim);
 
 	for(int i = 0; i < dim; i++)
 	{
-		B(2*i) = 0.0;
-		B(2*i+1) = 1/M(i);
+		for(int j = 0; j < 2*dim; j++)
+		{
+			if(j==2*i+1) B(j,i) = 1/M(i);
+			else B(j,i) = 0.0;
+		}
+
 	}
 
 	return (A.inverse())*(Ad - I)*B;

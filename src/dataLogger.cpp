@@ -20,11 +20,15 @@
 namespace k_api = Kinova::Api;
 
 
-void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedback data, struct ForceSensorData * forceSensorData, int64_t now)
+void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedback data, struct ForceSensorData * forceSensorData, double x, double y, double z, int64_t now)
 {
     if ((*outputFile).is_open()) {
 
         (*outputFile) << now << ",";
+
+        (*outputFile) << x << ",";
+        (*outputFile) << y << ",";
+        (*outputFile) << z << ",";
 
         for(int i = 0; i < 7; i++)
         {
@@ -65,10 +69,10 @@ void openLogFile(std::ofstream * outputFile)
         {
             (*outputFile) << "J" << std::to_string(i) << ",,,,";
         }
-        (*outputFile) << std::endl << "t,";
+        (*outputFile) << std::endl << "t,x,y,z,";
         for(int i=0; i < 7; i++)
         {
-            (*outputFile) << "x,dx,tau,i,";
+            (*outputFile) << "q,dq,tau,i,";
         }
         (*outputFile) << std::endl;
 

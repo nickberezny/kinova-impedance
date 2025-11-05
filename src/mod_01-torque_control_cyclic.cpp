@@ -74,7 +74,7 @@ namespace k_api = Kinova::Api;
 #define PORT 10000
 #define PORT_REAL_TIME 10001
 
-float TIME_DURATION = 30.0f; // Duration of the example (seconds)
+float TIME_DURATION = 10.0f; // Duration of the example (seconds)
 
 // Maximum allowed waiting time during actions
 constexpr auto TIMEOUT_PROMISE_DURATION = std::chrono::seconds{20};
@@ -210,6 +210,7 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
 
     int timer_count = 0;
     int64_t now = 0;
+    int64_t now_p = 0;
     int64_t last = 0;
 
     std::cout << "Initializing the arm for torque control example" << std::endl;
@@ -246,12 +247,14 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
         float init_last_torque = base_feedback.actuators(actuator_count - 1).torque();
         float init_first_torque = -base_feedback.actuators(0).torque(); //Torque measure is reversed compared to actuator direction
         float torque_amplification = 2.0;
+        float tor_cmd = 0.0;
 
         std::cout << "Running torque control example for " << TIME_DURATION << " seconds" << std::endl;
 
         // Real-time loop
         while (timer_count < (TIME_DURATION * 1000))
         {
+            now_p = now;
             now = GetTickUs();
 
             if (now - last > 1000)
@@ -260,11 +263,15 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
                 // Bonus: When doing this instead of disabling the following error, if communication is lost and first
                 //        actuator continues to move under torque command, resulting position error with command will
                 //        trigger a following error and switch back the actuator in position command to hold its position
-                base_command.mutable_actuators(6)->set_position(base_feedback.actuators(6).position());
+                //base_command.mutable_actuators(0)->set_position(base_feedback.actuators(0).position());
 
                 // First actuator torque command is set to last actuator torque measure times an amplification
+                
+                //tor_cmd=init_first_torque + (torque_amplification * (base_feedback.actuators(actuator_count - 1).torque() - init_last_torque));
                 //base_command.mutable_actuators(0)->set_torque_joint(init_first_torque + (torque_amplification * (base_feedback.actuators(actuator_count - 1).torque() - init_last_torque)));
-                base_command.mutable_actuators(6)->set_torque_joint(0.9);
+                
+                //std::cout << (10000.0-timer_count)/20000.0 << std::endl;
+                base_command.mutable_actuators(6)->set_torque_joint((10000.0-timer_count)/10000.0);
 
 
                 // First actuator position is sent as a command to last actuator
@@ -287,6 +294,8 @@ bool example_cyclic_torque_control(k_api::Base::BaseClient* base, k_api::BaseCyc
                 catch (k_api::KDetailedException& ex)
                 {
                     std::cout << "Kortex exception: " << ex.what() << std::endl;
+
+                    std::cout << now_p - last << std::endl;
 
                     std::cout << "Error sub-code: " << k_api::SubErrorCodes_Name(k_api::SubErrorCodes((ex.getErrorInfo().getError().error_sub_code()))) << std::endl;
                 }
@@ -373,7 +382,7 @@ int main(int argc, char **argv)
 
     // Example core
     bool success = true;
-    success &= example_move_to_home_position(base);
+    //success &= example_move_to_home_position(base);
     success &= example_cyclic_torque_control(base, base_cyclic, actuator_config);
     if (!success)
     {
