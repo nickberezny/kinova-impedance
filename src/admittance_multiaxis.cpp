@@ -320,7 +320,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
         Text << 0.0,0.0,0.0;
 
         VectorXd K(3);
-        K << 350.0,0.00001,0.00001;
+        K << 0.00001,0.00001,0.00001;
         VectorXd D(3);
         D << 200.0,200.0,200.0;
         VectorXd M(3);
@@ -417,9 +417,9 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 X.p(1) = Xv(2);
                 X.p(2) = Xv(4);
 
-                //X.M.DoRotX(-theta_v(4)+theta_v_prev(4)); //GOOD
-                //X.M.DoRotY(-theta_v(2)+theta_v_prev(2)); //GOOD
-                //X.M.DoRotZ(theta_v(0)-theta_v_prev(0));
+                X.M.DoRotX(-theta_v(4)+theta_v_prev(4)); //GOOD
+                X.M.DoRotY(-theta_v(2)+theta_v_prev(2)); //GOOD
+                X.M.DoRotZ(theta_v(0)-theta_v_prev(0));
 
                 //X.M.GetRPY(alpha, beta, delta);
                 //std::cout << theta_v(4) << std::endl;
