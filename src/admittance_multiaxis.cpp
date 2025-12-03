@@ -343,7 +343,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
         VectorXd K(3);
         K << 0.00001,0.00001,0.00001;
         VectorXd D(3);
-        D << 200.0,200.0,200.0;
+        D << 100.0,100.0,100.0;
         VectorXd M(3);
         M << 5.0,5.0,5.0;
 
