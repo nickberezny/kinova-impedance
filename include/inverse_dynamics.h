@@ -1,0 +1,1 @@
+void kinovaInverseDynamics(double * q, double * qd, double * qdd, double * tau);

@@ -114,7 +114,7 @@ void readFroceSensor(struct ForceSensorData * forceSensorData)
      (struct sockaddr*)&(forceSensorData->server_addr), &(forceSensorData->server_struct_length)) != -1)
     {
         i = i + 1;
-        //printf("%d\n",i++);
+        //printf("%d\n",i);
     }
 
     //printf("%d\n",forceSensorData->msg[1]);

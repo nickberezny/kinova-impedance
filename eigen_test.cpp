@@ -22,6 +22,18 @@ int main() {
 	MatrixXd Ad(2, 2);
 	VectorXd Bd(2);
 
+	VectorXd test(4);
+	test << 1.0,2.0,3.0,4.0;
+	std::cout << test << std::endl;
+
+	for(int i = 3; i > 0; i--)
+	{
+		test(i) = test(i-1);
+	}
+	
+	std::cout << test << std::endl;
+	/*
+
 	A = constructA(K,D,M,1);
 	std::cout << A << std::endl;
 	Ad = discretizeA(A,1);
@@ -39,6 +51,7 @@ int main() {
 	std::cout << Xv << std::endl;
 	Xv = Ad*Xv;
 	std::cout << Xv << std::endl;
+	*/
 
 }
 

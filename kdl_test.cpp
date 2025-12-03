@@ -4,7 +4,11 @@
 // modify it under the terms of the GNU Lesser General Public
 // License as published by the Free Software Foundation; either
 // version 2.1 of the License, or (at your option) any later version.
- 
+ #include <iostream>
+#include <iomanip>
+#include <ctime>
+#include <sstream>
+#include <fstream> 
 #include "kdl/jacobian.hpp"
 #include "kdl/tree.hpp"
 #include "kdl/chain.hpp"
@@ -26,6 +30,7 @@
 
 #include "include/structs.h"
 #include "include/inverse_kinematics.h"
+#include "include/safety.h"
  
 using namespace KDL;
  
@@ -33,6 +38,11 @@ int main( int argc, char** argv )
 {
 
     const double PI = 3.14159265358979323846;
+
+      std::ostringstream oss;
+      std::ofstream outputFile;
+      //oss << "/log.txt";
+      outputFile.open("test_data1.txt"); //open log file
 
     KDL::Tree tree_;
     KDL::Chain chain_;
@@ -48,13 +58,11 @@ int main( int argc, char** argv )
     grav(2) = -9.81; 
 
 
-    
-
     std::unique_ptr<KDL::ChainIkSolverPos_LMA> solver_;
     std::unique_ptr<KDL::ChainFkSolverPos_recursive> solverFK_;
     std::unique_ptr<KDL::ChainDynParam> dynParam_;
 
-    const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
+    const std::string urdf = "/home/nick/Documents/Github/kinova-impedance/URDF/GEN3_URDF_V12.urdf";
     kdl_parser::treeFromFile(urdf, tree_);
     KDL::JntArray q_prev(7);
     KDL::JntArray q_cur(7);
@@ -73,7 +81,7 @@ int main( int argc, char** argv )
     std::cout << "chain nb joints:  " << chain_.getNrOfJoints() << std::endl;
 
     KDL::Jacobian jac(chain_.getNrOfJoints());
-    solver_ = std::make_unique<KDL::ChainIkSolverPos_LMA>(chain_);
+    solver_ = std::make_unique<KDL::ChainIkSolverPos_LMA>(chain_,0.00001,500,0.01);
     //solverFK_ = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
     solvers.FK_solver_pos = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
     KDL::ChainJntToJacSolver jac_solver(chain_);
@@ -119,6 +127,59 @@ int main( int argc, char** argv )
         q_prev(i) = 2*PI*Q(i)/360.0;
     }
 
+    solvers.FK_solver_pos->JntToCart(q_prev, X);
+
+    for(int i = 0; i < 7; i++)
+    {
+        q_prev(i) += 0.5;
+    }
+
+    auto start = std::chrono::system_clock::now();
+    solver_->CartToJnt(q_prev, X, q_cur);
+    auto elapsed = std::chrono::high_resolution_clock::now() - start;
+
+    long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
+    elapsed).count();
+
+    std::cout << microseconds << std::endl;
+
+    
+
+    for(int i = 0; i < 7; i++)
+    {
+        std::cout << 180.0*q_cur(i)/PI << ",";
+    }
+    std::cout << std::endl;
+    
+    start = std::chrono::system_clock::now();
+    for(int i = 0; i<31; i++)
+    {
+        outputFile<<145.6789<<",";
+    }
+    std::cout << std::endl;
+
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+
+    microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
+    elapsed).count();
+
+    std::cout << microseconds << std::endl;
+
+    Eigen::VectorXd qcmd(7); 
+
+    qcmd << 0.1234,0.1234,0.1234,0.1234,0.1234,0.1234,0.1234;
+ 
+
+    start = std::chrono::system_clock::now();
+    checkCommandAngle(qcmd, qcmd, 6, 0.005, 10.234);
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+    microseconds = std::chrono::duration_cast<std::chrono::microseconds>(
+    elapsed).count();
+
+    std::cout << microseconds << std::endl;
+
+/*
+
     Eigen::VectorXd dQ(7);
     dQ << 10, 10, 10, 87, 10, 10, 10;
     
@@ -151,6 +212,8 @@ int main( int argc, char** argv )
         solver_->CartToJnt(q_prev, X, q_cur);
 
         Fbase = X.Inverse()*Fext;
+
+        */
 /*
         for(int i = 0; i < 3; i++)
         {
@@ -173,7 +236,7 @@ int main( int argc, char** argv )
         
         std::cout << std::endl;
            */ 
-    }
+    
 
     /*
 
@@ -242,6 +305,8 @@ int main( int argc, char** argv )
 //dynParam_->JntToMass(q_cur, H);
 
     
+    return 0; 
+
  
 
 }

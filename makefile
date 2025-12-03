@@ -1,19 +1,24 @@
 CC=g++
-LOCAL=/home/nick/Documents/kinova_impedance/
-INCLUDES=-I/usr/include/eigen3 -I/usr/local/include/kdl -I/usr/local/include/ -I$(LOCAL)cxxopts/ -I$(LOCAL)include/ 
-K_INCLUDES=-I$(LOCAL)kortex_api/include/ -I$(LOCAL)kortex_api/include/messages -I$(LOCAL)kortex_api/include/client -I$(LOCAL)kortex_api/include/client_stubs -I$(LOCAL)kortex_api/include/common
-LIBS=-L/usr/local/lib/ -L/home/nick/Documents/kinova_impedance/kortex_api/lib/release/ -ltinyxml -lurdf -lkdl_parser -lorocos-kdl -lKortexApiCpp -lpthread
+LOCAL=/home/nick/Documents/Github/kinova-impedance/
+INCLUDES=-I/usr/include/eigen3 -I/usr/include/kdl -I/usr/include/ -I$(LOCAL)cxxopts/ -I$(LOCAL)include/ 
+K_INCLUDES=-I$(LOCAL)/include/matlab/ -I$(LOCAL)kortex_api/include/ -I$(LOCAL)kortex_api/include/messages -I$(LOCAL)kortex_api/include/client -I$(LOCAL)kortex_api/include/client_stubs -I$(LOCAL)kortex_api/include/common
+LIBS=-L./lib/  -L/usr/lib/ -L/home/nick/Documents/Github/kinova-impedance/kortex_api/lib/release/ -lkinovaDynamics -ltinyxml -lurdf -lkdl_parser -lorocos-kdl -lKortexApiCpp -lpthread
 
+test_forcesensor:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c  src/dataLogger.cpp forceSensorTest.cpp $(LIBS) -o build/testForceSensor
+
+test_matlab:
+	sudo g++ src/archive/main.cpp -L./lib/ -lkinovaDynamics -I./include/matlab/ -o main 
 
 torControl:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/01-torque_control_cyclic.cpp $(LIBS) -o build/torControl
 
 ZAdmCartControl:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_1axis.cpp $(LIBS) -o build/ZAdmCartControl
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/inverse_dynamics.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_1axis.cpp $(LIBS) -o build/ZAdmCartControl
 
 
 AdmCartControl:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_multiaxis.cpp $(LIBS) -o build/AdmCartControl
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/filters.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/admittance_multiaxis.cpp $(LIBS) -o build/AdmCartControl
 
 followTrajectory:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/readCsv.cpp src/forceSensor.c src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/followTrajectory.cpp $(LIBS) -o build/followTrajectory
@@ -36,7 +41,7 @@ eigen:
 	$(CC) $(INCLUDES) eigen_test.cpp -o build/eigen_test
 
 kdl:
-	$(CC) $(INCLUDES) src/inverse_kinematics.cpp kdl_test.cpp $(LIBS)  -o build/kdl_test
+	$(CC) $(INCLUDES) src/inverse_kinematics.cpp src/safety.cpp kdl_test.cpp $(LIBS)  -o build/kdl_test
 
 adm_test: 
 	$(CC) $(INCLUDES) src/admittance.cpp $(LIBS) -o build/adm_test

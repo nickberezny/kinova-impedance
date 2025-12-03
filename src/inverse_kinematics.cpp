@@ -16,6 +16,8 @@
 #include "kdl/chaindynparam.hpp"
 #include <chainfksolvervel_recursive.hpp>
 #include <chainfksolverpos_recursive.hpp>
+
+#include "kdl/chainiksolvervel_pinv.hpp"
 #include <stdio.h>
 #include <iostream>
 

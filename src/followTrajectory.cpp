@@ -210,7 +210,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     }
     */
     
-    const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
+    const std::string urdf = "/home/nick/Documents/Github/kinova-impedance/URDF/GEN3_URDF_V12.urdf";
 
     KDL::Chain chain_;
     chain_ = loadKDLChain(urdf);
@@ -293,7 +293,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 dq(i) = PI*data.actuators(i).velocity()/180.0; 
             }
             
-            writeDataToLog(&outputFile, data, fdata, X.p(0), X.p(1), X.p(2), now);
+            //writeDataToLog(&outputFile, data, fdata, X.p(0), X.p(1), X.p(2), now);
             
         };
 

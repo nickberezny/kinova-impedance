@@ -10,3 +10,5 @@ sudo apt-get install libtinyxml2-dev
 
 sudo apt install cmake libeigen3-dev libyaml-cpp-dev libboost-filesystem-dev 
     libboost-system-dev liburdf-dev liborocos-kdl-dev libkdl-parser-dev
+    
+sudo apt install libcxxopts-dev

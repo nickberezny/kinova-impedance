@@ -45,6 +45,11 @@
 #include <chainfksolvervel_recursive.hpp>
 #include <chainfksolverpos_recursive.hpp>
 
+#include "kinovaDynamics.h"
+#include "kinovaDynamics_initialize.h"
+#include "kinovaDynamics_terminate.h"
+#include "rt_nonfinite.h"
+
 #include <chrono>
 
 #include "utilities.h"
@@ -54,6 +59,7 @@
 #include "../include/safety.h"
 #include "../include/forceSensor.h"
 #include "../include/admittance.h"
+#include "../include/inverse_dynamics.h"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -83,6 +89,8 @@ KDL::JntArray q(7);
 KDL::JntArray q_prev(7);
 KDL::JntArray dq(7);
 KDL::Frame X;
+
+double q_dyn[6], qd_dyn[6], qdd_dyn[6], tau[6];
 
 int64_t now = 0;
 
@@ -185,6 +193,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 {
     bool return_status = true;
 
+    kinovaDynamics_initialize();
 
      //ADDED-----------------------------------
 
@@ -207,7 +216,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     }
     */
     
-    const std::string urdf = "/home/nick/Documents/kinova_impedance/URDF/GEN3_URDF_V12.urdf";
+    const std::string urdf = "/home/nick/Documents/Github/kinova-impedance/URDF/GEN3_URDF_V12.urdf";
 
     KDL::Chain chain_;
     chain_ = loadKDLChain(urdf);
@@ -342,8 +351,19 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             if(now - last > 1000)
             {
 
+                for(int i = 0; i < 6; i++)
+                {
+                    q_dyn[i] = q(i);
+                    qd_dyn[i] = dq(i);
+                    qdd_dyn[i] = 0.0;
+                }
+
                 readFroceSensor(fdata);
                 //POS = Asin(wt) + A0
+
+
+                //kinovaInverseDynamics(q_dyn, qd_dyn, qdd_dyn, tau);
+
 
                 //Fd = A1*std::sin(rate*(double)timer_count- PI/2.0) + A0; //set the virtual force (testing)
                 //Fext << Fd;//virt force
@@ -361,6 +381,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 q_prev = q;
                 solvers.IK_solver->CartToJnt(q_prev, X, q);
                 
+                /*
                 if(!checkCartPos(X.p(0),X.p(1),X.p(2)))
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
@@ -372,7 +393,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
                     return return_status;
                 }
-    
+    */
                 if(!checkVelocities(dq.data, 7, 1.5)) //about 86 deg/s
                 {
                     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
@@ -392,13 +413,13 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                 }
 
                 
-                if(checkCommandAngle(q.data, q_prev.data, 7, 0.006, 0.008)) 
+                if(checkCommandAngle(q.data, q_prev.data, 7, 0.06, 0.08)) 
                 {
                     for(int i = 0; i < actuator_count; i++)
                     {
                         if(q(i) < 0.0) q(i) = q(i) + 2*PI; 
                         //std::cout << fmod(180.0*q(i)/PI, 360.0f) << ",";
-                        base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
+                        //base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
                         
                     }
                     //std::cout << std::endl;
@@ -454,6 +475,8 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
 
     // Wait for a bit
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+    kinovaDynamics_terminate();
 
     return return_status;
 }
