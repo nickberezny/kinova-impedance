@@ -44,9 +44,14 @@ KDL::Chain loadKDLChain(std::string urdf_path)
 void torqueToForce(double *tau[2], double *q[3], double *l[3], double *Fz)
 {
 
-    *Fz = tau[0]*(l[0]*cos(q[0])+l[1]*cos(q[1])) + tau[1]*l[1]*cos(q[1]); 
+    *Fz = tau[0]/(l[0]*cos(q[0])+l[1]*cos(q[1])) + tau[1]/(l[1]*cos(q[1])); 
     return;
 
+}
+
+Eigen::VectorXd forceToTorque(Eigen::MatrixXd A, Eigen::VectorXd F)
+{
+    return = A.inverse()*F;
 }
 
 
@@ -74,6 +79,7 @@ void simplifiedInverseKinematics(double * q[3], double * X[2], double * phi, dou
 
 void simplifiedForwardKinematics(double * q[3], double * X[2], double * phi, double * l[3])
 {
+
     return;
 }
 

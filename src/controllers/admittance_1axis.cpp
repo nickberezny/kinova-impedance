@@ -315,9 +315,6 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 iact[timeer_count] = data.actuators(actuatorIndexs[i]).current_motor();
             }
             
-            //TODO move 
-            //writeDataToLog(&outputFile, data, fdata,  X.p(0), X.p(1), X.p(2), now);
-            
         };
 
         startForceSensorStream(fdata);
