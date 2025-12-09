@@ -20,6 +20,7 @@
 #include "kdl/chainiksolvervel_pinv.hpp"
 #include <stdio.h>
 #include <iostream>
+#include <cmath> 
 
 #include "../include/structs.h"
 #include "../include/inverse_kinematics.h"
@@ -39,6 +40,43 @@ KDL::Chain loadKDLChain(std::string urdf_path)
 
     return chain_;
 }
+
+void torqueToForce(double *tau[2], double *q[3], double *l[3], double *Fz)
+{
+
+    *Fz = tau[0]*(l[0]*cos(q[0])+l[1]*cos(q[1])) + tau[1]*l[1]*cos(q[1]); 
+    return;
+
+}
+
+
+void simplifiedInverseKinematics(double * q[3], double * X[2], double * phi, double * l[3])
+{
+    double nx,ny,delta,cs,s2,s1,c1;
+
+    nx = X[0] - l[2]*cos(*phi);
+    ny = X[1] - l[2]*sin(*phi);
+    delta = nx*nx + ny*ny;
+    c2 = (delta - l[0]*l[0] - l[1]*l[1])/(2*l[0]*l[1]);
+    s2 = sqrt(1-c2*c2);
+
+    q[1] = atan2(s2,c2);
+
+    s1 = ((l[0]+l[2])*ny - l[1]*s2*nx)/delta;
+    c1 = ((l[0]+l[2])*nx - l[1]*s2*ny)/delta;
+
+    q[0] = atan2(s1,c1);
+
+    q[3] = phi - q[0] - q[2];
+
+    return;
+}
+
+void simplifiedForwardKinematics(double * q[3], double * X[2], double * phi, double * l[3])
+{
+    return;
+}
+
 
 /*
 int main( int argc, char** argv )

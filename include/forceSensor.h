@@ -11,5 +11,5 @@ struct ForceSensorData {
 
 void initForceSensorUDP(struct ForceSensorData * forceSensorData);
 void startForceSensorStream(struct ForceSensorData * forceSensorData);
-void readFroceSensor(struct ForceSensorData * forceSensorData);
+void readForceSensor(struct ForceSensorData * forceSensorData);
 void tareForceSensor(struct ForceSensorData * forceSensorData);

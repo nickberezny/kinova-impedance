@@ -12,34 +12,6 @@
 #include <sys/time.h>
 #include "../include/forceSensor.h"
 
-/*
-struct ForceSensorData *fdata;
-
-int main()
-{
-    fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
-
-    initForceSensorUDP(fdata);
-
-    printf("Time, Force, x, LSF, LSB\n");
-    //
-    //clock_gettime(CLOCK_MONOTONIC, &controlParams->t_first);  
-    sleep(2);
-    tareForceSensor(fdata);
-    sleep(2);
-    startForceSensorStream(fdata);
-
-    while(1)
-    {
-        readFroceSensor(fdata);
-    
-        printf("%f,%f,%f,%f,%f,%f\n",fdata->F[0],fdata->F[1],fdata->F[2],fdata->T[0],fdata->T[1],fdata->T[2]);
-
-        usleep(700);
-    }
-    
-}
-*/
 void initForceSensorUDP(struct ForceSensorData * forceSensorData)
 {
 
@@ -105,7 +77,7 @@ void tareForceSensor(struct ForceSensorData * forceSensorData)
 }
 
 
-void readFroceSensor(struct ForceSensorData * forceSensorData)
+void readForceSensor(struct ForceSensorData * forceSensorData)
 {
 
     int i = 0;
