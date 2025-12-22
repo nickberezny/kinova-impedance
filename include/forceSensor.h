@@ -9,6 +9,7 @@ struct ForceSensorData {
  	double T[3];
 };
 
+void estimateForceFromTorque(double tau, double offset,  double * q, double pi, double * Fest);
 void initForceSensorUDP(struct ForceSensorData * forceSensorData);
 void startForceSensorStream(struct ForceSensorData * forceSensorData);
 void readForceSensor(struct ForceSensorData * forceSensorData);

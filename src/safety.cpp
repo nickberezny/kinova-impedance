@@ -65,7 +65,7 @@ bool checkCommandAngleSimplified(double * qcmd, double * qprev, double thresh)
 {
 	for(int i = 0; i < 3; i++)
 	{
-		if(std::abs(qcmd[i]-qprev[i]) > thresh && std::abs(qcmd[i]+6.2831853-qprev(i)) > thresh && std::abs(qcmd[i]-6.2831853-qprev[i]) > thresh)
+		if(std::abs(qcmd[i]-qprev[i]) > thresh && std::abs(qcmd[i]+6.2831853-qprev[i]) > thresh && std::abs(qcmd[i]-6.2831853-qprev[i]) > thresh)
 		{
 			return false;
 		}

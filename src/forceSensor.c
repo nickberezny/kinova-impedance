@@ -12,6 +12,17 @@
 #include <sys/time.h>
 #include "../include/forceSensor.h"
 
+
+void estimateForceFromTorque(double tau, double offset,  double * q, double pi, double * Fest)
+{
+    double l1 = 0.4368;
+    double l2 = 0.3109;
+
+    double m1 = l1*sin(q[0]) + l2*sin(q[1]-pi-q[0]);
+
+    *Fest = -(tau-offset)/m1;
+}
+
 void initForceSensorUDP(struct ForceSensorData * forceSensorData)
 {
 
@@ -55,7 +66,7 @@ void startForceSensorStream(struct ForceSensorData * forceSensorData)
     }
 
     sleep(0.1);
-    readFroceSensor(forceSensorData);
+    readForceSensor(forceSensorData);
     sleep(0.1);
 
     //tareForceSensor(forceSensorData);

@@ -45,6 +45,11 @@
 #include <chainfksolvervel_recursive.hpp>
 #include <chainfksolverpos_recursive.hpp>
 
+#include "kinovaDynamics.h"
+#include "kinovaDynamics_initialize.h"
+#include "kinovaDynamics_terminate.h"
+#include "rt_nonfinite.h"
+
 #include <chrono>
 
 #include "utilities.h"
@@ -98,13 +103,10 @@ double q_prev[3];
 double qd_cur[3];
 double qdd_cur[3];
 double tau[2];
-double phi = -PI;
+double X[2];
+double phi;
 double l[3] = {0.4368,0.3109,0.169};
-double alpha = 0.6;
-
-KDL::JntArray q_kdl(7);
-KDL::JntArray q_kdl_prev(7);
-KDL::Frame X;
+double alpha = 1.0;
 
 //double q_dyn[6], qd_dyn[6], qdd_dyn[6], tau[6];
 struct ForceSensorData *fdata;
@@ -210,23 +212,13 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 {
     bool return_status = true;
 
-
-    //kinovaDynamics_initialize();
+    kinovaDynamics_initialize();
 
     fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
 
     initForceSensorUDP(fdata);
     tareForceSensor(fdata);
     sleep(2);
-
-
-    const std::string urdf = "/home/nick/Documents/Github/kinova-impedance/URDF/GEN3_URDF_V12.urdf";
-
-    KDL::Chain chain_;
-    chain_ = loadKDLChain(urdf);
-    kdl_solvers solvers(chain_);
-    solvers.FK_solver_pos = std::make_unique<KDL::ChainFkSolverPos_recursive>(chain_);
-    solvers.IK_solver = std::make_unique<KDL::ChainIkSolverPos_LMA>(chain_);
 
 
     z = (double*)calloc(DURATION*1000,sizeof(double));
@@ -239,11 +231,12 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
         qd[i] = (double*)calloc(DURATION*1000,sizeof(double));
         iact[i] = (double*)calloc(DURATION*1000,sizeof(double));
         tact[i] = (double*)calloc(DURATION*1000,sizeof(double));
+
     }
     
     
     //logfile 
-    openLogFile(&outputFile);
+    
 
     // Move arm to ready position
     example_move_to_home_position(base);
@@ -282,30 +275,26 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 q_cur[i] = q[i][0];
                 q_prev[i] = q_cur[i];
             }
-
-            q_kdl(i) = PI*base_feedback.actuators(i).position()/180.0;
-            q_kdl_prev(i) = q_kdl(i);
+            
         }
-
-        solvers.FK_solver_pos->JntToCart(q_kdl, X);
 
         //TODO set l, set x0
         //simplifiedForwardKinematics(q_cur, X, &phi, l);
         double xd = 0;
 
         VectorXd Xv(2);
-        Xv << X.p[2], 0;
+        Xv << xd, 0;
         VectorXd X0(2);
-        X0 << 0.095,0; //0.095, 0;
+        X0 << 0.05, 0;
         VectorXd Fext(1);
         Fext << 0.0;
 
         VectorXd K(1);
-        K << 0.000001;
+        K << 30.0;
         VectorXd D(1);
-        D << 50.0;
+        D << 200.0;
         VectorXd M(1);
-        M << 2.0;
+        M << 1.0;
 
         Eigen::MatrixXd A(2, 2);
         Eigen::MatrixXd Ad(2, 2);
@@ -333,9 +322,6 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 iact[i][timer_count] = data.actuators(actuatorIndexs[i]).current_motor();
                 tact[i][timer_count] = data.actuators(actuatorIndexs[i]).torque();
             }
-
-            for(int i = 0; i < 7; i ++) q_kdl_prev(i) = PI*data.actuators(i).position()/180.0;
-
             
         };
 
@@ -356,39 +342,32 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                     qdd_cur[i] = 0.0;
                 }
 
-              
+
                 readForceSensor(fdata);
                 Fsense[timer_count] = -fdata->F[2];
+          
+       
 
-                estimateForceFromTorque(tact[0][timer_count], 17.5, q_cur, PI, &Fest[timer_count]);
-                if(Fest[timer_count] > 30.0 || Fest[timer_count] < -30.0)
-                {
-                    Fest[timer_count] = 0.0;
-                }
-
-                Fext << alpha*Fsense[timer_count] + (1.0-alpha)*Fest[timer_count];
+                Fext << Fsense[timer_count];
                 Xv = virtualTrajectory(Ad, Bd, Fext, Xv, X0);
                 z[timer_count] = Xv(0);
 
-                X.p(2) = z[timer_count];
+                X[0] = 0.2-0.274;
+                X[1] = 0.475;
+                phi = -PI;
                 
-                //simplifiedInverseKinematics(q_cur, X, &phi, l);
-                solvers.IK_solver->CartToJnt(q_kdl_prev, X, q_kdl);
+                simplifiedInverseKinematics(q_cur, X, &phi, l);
 
-                q_cur[0] = q_kdl(1);
-                q_cur[1] = q_kdl(3);
-                q_cur[2] = q_kdl(5);
-
-                //std::cout << z[timer_count] << std::endl;
+                q_cur[1] = 2*PI - q_cur[1];
+                q_cur[2] = -q_cur[2];
                 
-                if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] > 0.087)
+                if(checkCommandAngleSimplified(q_cur, q_cur, 0.08)) 
                 {
-                    for(int i = 0; i < 7; i++)
+                    for(int i = 0; i < 3; i++)
                     {
-                        if(q_kdl(i) < 0.0) q_kdl(i) = q_kdl(i) + 2*PI; 
+                        if(q_cur[i] < 0.0) q_cur[i] = q_cur[i] + 2*PI; 
   
-                        base_command.mutable_actuators(i)->set_position(fmod(180.0*q_kdl(i)/PI, 360.0f));
-                        
+                        //base_command.mutable_actuators(actuatorIndexs[i])->set_position(fmod(180.0*q[i][timer_count]/PI, 360.0f));
                     }
                 }
                 else
@@ -398,9 +377,9 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
                     std::cout << "Exceeded command threshold" << std::endl;
                     
-                    for(int i = 0; i < 7; i++)
+                    for(int i = 0; i < 3; i++)
                     {
-                        std::cout<<q_kdl(i)<<","<<q_kdl_prev(i)<<std::endl;
+                        std::cout<<q_cur[i]<<","<<q_prev[i]<<std::endl;
                     }
 
                     // Wait for a bit
@@ -438,13 +417,13 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
     base->SetServoingMode(servoingMode);
 
- 
+    openLogFile(&outputFile);
     writeAllData(&outputFile, q, qd, z, Fsense, Fest, iact, tact, DURATION*1000);
 
     // Wait for a bit
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
-    //kinovaDynamics_terminate();
+    kinovaDynamics_terminate();
 
     return return_status;
 }

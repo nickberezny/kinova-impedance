@@ -41,7 +41,7 @@ KDL::Chain loadKDLChain(std::string urdf_path)
     return chain_;
 }
 
-void torqueToForce(double *tau[2], double *q[3], double *l[3], double *Fz)
+void torqueToForce(double tau[2], double q[3], double l[3], double *Fz)
 {
 
     *Fz = tau[0]/(l[0]*cos(q[0])+l[1]*cos(q[1])) + tau[1]/(l[1]*cos(q[1])); 
@@ -51,34 +51,69 @@ void torqueToForce(double *tau[2], double *q[3], double *l[3], double *Fz)
 
 Eigen::VectorXd forceToTorque(Eigen::MatrixXd A, Eigen::VectorXd F)
 {
-    return = A.inverse()*F;
+    return A.inverse()*F;
 }
 
 
-void simplifiedInverseKinematics(double * q[3], double * X[2], double * phi, double * l[3])
+void simplifiedInverseKinematics(double q[3], double X[2], double * phi, double l[3])
 {
-    double nx,ny,delta,cs,s2,s1,c1;
+    double nx,ny,delta,c2,s2,s1,c1;
 
     nx = X[0] - l[2]*cos(*phi);
     ny = X[1] - l[2]*sin(*phi);
     delta = nx*nx + ny*ny;
-    c2 = (delta - l[0]*l[0] - l[1]*l[1])/(2*l[0]*l[1]);
-    s2 = sqrt(1-c2*c2);
+    c2 = (delta - l[0]*l[0] - l[1]*l[1])/(2.0*l[0]*l[1]);
+    s2 = sqrt(1.0-c2*c2);
 
     q[1] = atan2(s2,c2);
 
-    s1 = ((l[0]+l[2])*ny - l[1]*s2*nx)/delta;
-    c1 = ((l[0]+l[2])*nx - l[1]*s2*ny)/delta;
+    s1 = ((l[0]+l[1]*c2)*ny - l[1]*s2*nx)/delta;
+    c1 = ((l[0]+l[1]*c2)*nx + l[1]*s2*ny)/delta;
+
+
+
+    std::cout << s1 << ",," << c1 << std::endl;
 
     q[0] = atan2(s1,c1);
 
-    q[3] = phi - q[0] - q[2];
+    q[2] = *phi - q[0] - q[1];
 
     return;
 }
 
-void simplifiedForwardKinematics(double * q[3], double * X[2], double * phi, double * l[3])
+void simplifiedForwardKinematics(double q[3], double X[2], double * phi, double l[3])
 {
+    Eigen::MatrixXd H01(4,4);
+    H01 << cos(q[0]), -sin(q[0]), 0, l[0]*cos(q[0]),
+    sin(q[0]), cos(q[0]), 0, l[0]*sin(q[0]),
+    0,0,1,0,
+    0,0,0,1;
+    
+
+    Eigen::MatrixXd H12(4,4);
+    H12 << cos(q[1]), -sin(q[1]), 0, l[1]*cos(q[1]),
+        sin(q[1]), cos(q[1]), 0, l[1]*sin(q[1]),
+        0,0,1,0,
+        0,0,0,1;
+    
+
+    Eigen::MatrixXd H23(4,4);
+    H23 << cos(q[2]), -sin(q[2]), 0, l[2]*cos(q[2]),
+        sin(q[2]), cos(q[2]), 0, l[2]*sin(q[2]),
+        0,0,1,0,
+        0,0,0,1;
+    
+
+    Eigen::MatrixXd H03(4,4);
+    Eigen::MatrixXd H02(4,4);
+
+    H03=H01*H12*H23;  
+    //H02=H01*H12;    
+
+    Eigen::VectorXd P3(2);
+    P3 << H03(0,3), H03(1,3);
+
+    std::cout << P3(0) <<"," << P3(1) << std::endl;
 
     return;
 }

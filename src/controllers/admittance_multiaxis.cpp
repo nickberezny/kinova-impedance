@@ -205,7 +205,6 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
     /*
     while(1)
     {
-        readFroceSensor(fdata);
     
         printf("%f,%f,%f,%f,%f,%f\n",fdata->F[0],fdata->F[1],fdata->F[2],fdata->T[0],fdata->T[1],fdata->T[2]);
 
@@ -398,7 +397,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
             if(now - last > 1000)
             {
 
-                readFroceSensor(fdata);
+                readForceSensor(fdata);
                 //POS = Asin(wt) + A0
 
                 //Fd = A1*std::sin(rate*(double)timer_count- PI/2.0) + A0; //set the virtual force (testing)
@@ -506,7 +505,7 @@ bool example_actuator_low_level_velocity_control(k_api::Base::BaseClient* base, 
                     {
                         if(q(i) < 0.0) q(i) = q(i) + 2*PI; 
                         //std::cout << fmod(180.0*q(i)/PI, 360.0f) << ",";
-                        base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
+                        //base_command.mutable_actuators(i)->set_position(fmod(180.0*q(i)/PI, 360.0f));
                         
                     }
                     //std::cout << std::endl;
