@@ -46,8 +46,10 @@ void writeDataToLog(std::ofstream * outputFile, const k_api::BaseCyclic::Feedbac
 
 }
 
-void writeAllData(std::ofstream * outputFile, double ** q, double ** dq, double *z, double * Fsense, double * Fest, double ** iact, double **tact, int len)
+void writeAllData(std::ofstream * outputFile, double ** q, double ** dq, double *z, double *dz, double *ddz, double * Fsense, double * Fest, double ** iact, double **tact, int len)
 {
+    (*outputFile) << "q1, dq1, i1, t1, q2, dq2, i2, t2, q3, dq3, i3, t3, z, dz, ddz, F, Fest" << std::endl;
+
     for(int i = 0; i < len; i++)
     {
         for(int j = 0; j < 3; j++)
@@ -55,7 +57,7 @@ void writeAllData(std::ofstream * outputFile, double ** q, double ** dq, double 
             (*outputFile) << q[j][i] <<  "," << dq[j][i] << "," << iact[j][i] << "," << tact[j][i] << ",";
         }
 
-        (*outputFile) << z[i] <<  "," << Fsense[i] << "," << Fest[i]  << std::endl;
+        (*outputFile) << z[i] <<  "," << dz[i] <<  "," << ddz[i] <<  ","  << Fsense[i] << "," << Fest[i]  << std::endl;
         
     }
 

@@ -55,6 +55,7 @@
 #include "../include/forceSensor.h"
 #include "../include/admittance.h"
 #include "../include/inverse_dynamics.h"
+#include "../include/filters.hpp"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -89,6 +90,8 @@ double *qd[3];
 double *iact[3];
 double *tact[3];
 double *z;
+double *dz;
+double *ddz;
 double *Fsense;
 double *Fest;
 
@@ -100,7 +103,7 @@ double qdd_cur[3];
 double tau[2];
 double phi = -PI;
 double l[3] = {0.4368,0.3109,0.169};
-double alpha = 0.6;
+double alpha = 1.0;
 
 KDL::JntArray q_kdl(7);
 KDL::JntArray q_kdl_prev(7);
@@ -219,6 +222,24 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     tareForceSensor(fdata);
     sleep(2);
 
+    VectorXd dzvec(8);
+    VectorXd dzfilt(7);
+    dzvec << 0,0,0,0,0,0,0,0;
+    dzfilt << 0,0,0,0,0,0,0;
+
+    VectorXd ddzvec(8);
+    VectorXd ddzfilt(7);
+    ddzvec << 0,0,0,0,0,0,0,0;
+    ddzfilt << 0,0,0,0,0,0,0;
+
+    VectorXd afilt(7);
+    afilt <<-6.43532475688657790158,17.76978864520641820945,-27.29100833212815757634,25.17605177335131116934,-13.94983800505135285164,4.29857409735324225153,-0.56824304536622272099;
+    VectorXd bfilt(8);
+    bfilt << 0.00000000294123952020,0.00000002058867664137,0.00000006176602992412,0.00000010294338320686,0.00000010294338320686,0.00000006176602992412,0.00000002058867664137,0.00000000294123952020;
+
+
+
+
 
     const std::string urdf = "/home/nick/Documents/Github/kinova-impedance/URDF/GEN3_URDF_V12.urdf";
 
@@ -230,6 +251,8 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
 
     z = (double*)calloc(DURATION*1000,sizeof(double));
+    dz = (double*)calloc(DURATION*1000,sizeof(double));
+    ddz = (double*)calloc(DURATION*1000,sizeof(double));
     Fsense = (double*)calloc(DURATION*1000,sizeof(double));
     Fest = (double*)calloc(DURATION*1000,sizeof(double));
 
@@ -303,7 +326,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
         VectorXd K(1);
         K << 0.000001;
         VectorXd D(1);
-        D << 50.0;
+        D << 200.0;
         VectorXd M(1);
         M << 2.0;
 
@@ -371,6 +394,12 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 z[timer_count] = Xv(0);
 
                 X.p(2) = z[timer_count];
+
+                if(timer_count>1) dz[timer_count] = (z[timer_count] - z[timer_count-1])/0.001;
+                butterworth(&dz[timer_count], &dz[timer_count], dzvec, dzfilt, afilt, bfilt);
+
+                if(timer_count>2) ddz[timer_count] = (dz[timer_count] - dz[timer_count-1])/0.001;
+                //butterworth(&ddz[timer_count], &ddz[timer_count], ddzvec, ddzfilt, afilt, bfilt);
                 
                 //simplifiedInverseKinematics(q_cur, X, &phi, l);
                 solvers.IK_solver->CartToJnt(q_kdl_prev, X, q_kdl);
@@ -439,7 +468,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     base->SetServoingMode(servoingMode);
 
  
-    writeAllData(&outputFile, q, qd, z, Fsense, Fest, iact, tact, DURATION*1000);
+    writeAllData(&outputFile, q, qd, z, dz, ddz, Fsense, Fest, iact, tact, DURATION*1000);
 
     // Wait for a bit
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));

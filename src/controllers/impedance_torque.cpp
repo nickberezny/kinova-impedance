@@ -127,6 +127,7 @@ void my_handler(int s)
     printf("Caught signal %d\n", s);
     control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
     actuator_config->SetControlMode(control_mode_message, 2);
+    actuator_config->SetControlMode(control_mode_message, 4);
 
     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
     base->SetServoingMode(servoingMode);
@@ -251,9 +252,9 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     ddzfilt << 0,0,0,0,0,0,0;
 
     VectorXd afilt(7);
-    afilt <<-6.85881892828910899595,20.16285475449179642737,-32.93154091636195346382,32.27400867099097325763,-18.97904383508130621294,6.20086512403968459495,-0.86832486976192524430;
+    afilt <<-6.43532475688657790158,17.76978864520641820945,-27.29100833212815757634,25.17605177335131116934,-13.94983800505135285164,4.29857409735324225153,-0.56824304536622272099;
     VectorXd bfilt(8);
-    bfilt << 0.00000000000022000386,0.00000000000154002705,0.00000000000462008114,0.00000000000770013524,0.00000000000770013524,0.00000000000462008114,0.00000000000154002705,0.00000000000022000386;
+    bfilt << 0.00000000294123952020,0.00000002058867664137,0.00000006176602992412,0.00000010294338320686,0.00000010294338320686,0.00000006176602992412,0.00000002058867664137,0.00000000294123952020;
 
 
 
@@ -340,11 +341,11 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
         control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::TORQUE);
 
 
-        //TODO: set actuator 2 (id = 3) and 4 (id = 5)
+        //TODO: set actuator 2 (id = 2) and 4 (id = 4)
         int first_actuator_device_id = 2;
         actuator_config->SetControlMode(control_mode_message, first_actuator_device_id);
-        //int second_actuator_device_id = 5;
-        //actuator_config->SetControlMode(control_mode_message, second_actuator_device_id);
+        int second_actuator_device_id = 4;
+        actuator_config->SetControlMode(control_mode_message, second_actuator_device_id);
 
 
         solvers.FK_solver_pos->JntToCart(q_kdl, X);
@@ -393,11 +394,9 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
                 z[timer_count] = X.p(2);
                 if(timer_count>1) dz[timer_count] = (z[timer_count] - z[timer_count-1])/0.001;
+                butterworth(&dz[timer_count], &dz[timer_count], dzvec, dzfilt, afilt, bfilt);
                 if(timer_count>2) ddz[timer_count] = (dz[timer_count] - dz[timer_count-1])/0.001;
                 
-                //filter 
-                butterworth(&dz[timer_count], &dz[timer_count], dzvec, dzfilt, afilt, bfilt);
-                butterworth(&ddz[timer_count], &ddz[timer_count], ddzvec, ddzfilt, afilt, bfilt);
 
                 readForceSensor(fdata);
                 Fsense[timer_count] = -fdata->F[2];
@@ -409,7 +408,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 forceToTorque(Fic, l, q_cur, tor_cmd, tau_off);
                 //check tor levels!
 
-                //std::cout << tor_cmd[0] << ", " << tor_cmd[1] << std::endl;
+                std::cout << tor_cmd[0] << ", " << tor_cmd[1] << std::endl;
                 
                 if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] > 0.087)
                 {
@@ -418,8 +417,8 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                     //
                     base_command.mutable_actuators(1)->set_position(q_kdl(1)*180.0/PI);
                     base_command.mutable_actuators(1)->set_torque_joint(-15.5);  //-tau_off[0] + tor_cmd[0]);
-                    //base_command.mutable_actuators(3)->set_position(base_feedback.actuators(3).position());
-                    //base_command.mutable_actuators(3)->set_torque_joint(-tau_off[1] + tor_cmd[1]);
+                    base_command.mutable_actuators(3)->set_position(q_kdl(3)*180.0/PI);
+                    base_command.mutable_actuators(3)->set_torque_joint(5.0);//-tau_off[1] + tor_cmd[1]);
                 }
                 else
                 {
@@ -469,7 +468,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     base->SetServoingMode(servoingMode);
 
  
-    writeAllData(&outputFile, q, qd, z, Fsense, Fest, iact, tact, DURATION*1000);
+    writeAllData(&outputFile, q, qd, z, dz, ddz, Fsense, Fest, iact, tact, DURATION*1000);
 
     // Wait for a bit
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));

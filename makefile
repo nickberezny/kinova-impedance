@@ -9,7 +9,7 @@ impedanceTorque:
 
 
 ZAdmCartControl:
-	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/inverse_dynamics.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/controllers/admittance_1axis.cpp $(LIBS) -o build/ZAdmCartControl
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/filters.cpp src/inverse_dynamics.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/controllers/admittance_1axis.cpp $(LIBS) -o build/ZAdmCartControl
 
 collectData:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/inverse_dynamics.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/controllers/collectData.cpp $(LIBS) -o build/collectData
