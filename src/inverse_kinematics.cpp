@@ -51,7 +51,7 @@ void torqueToForce(double tau[2], double q[3], double l[3], double *Fz)
 
 void forceToTorque(double F, double l[3], double q[3], double * tau, double * offset)
 {
-    double m2 = l[1]*sin(q[1]-3.14-q[0]);
+    double m2 = l[1]*sin(q[1]-3.14159-q[0]);
     double m1 = l[0]*sin(q[0]) + m2;
     tau[0] = F*m1 + offset[0];
     tau[1] = F*m2 + offset[1];

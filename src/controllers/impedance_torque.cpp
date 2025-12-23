@@ -15,6 +15,7 @@
 #include <vector>
 #include <math.h>
 #include <cmath> 
+#include <signal.h>
 
 #include <ctime>
 #include <sstream>
@@ -30,6 +31,7 @@
 #include <RouterClient.h>
 #include <TransportClientTcp.h>
 #include <TransportClientUdp.h>
+#include <ActuatorConfigClientRpc.h>
 
 #include <google/protobuf/util/json_util.h>
 
@@ -55,6 +57,7 @@
 #include "../include/forceSensor.h"
 #include "../include/admittance.h"
 #include "../include/inverse_dynamics.h"
+#include "../include/filters.hpp"
 
 #if defined(_MSC_VER)
 #include <Windows.h>
@@ -103,7 +106,7 @@ double tau[2];
 double phi = -PI;
 double l[3] = {0.4368,0.3109,0.169};
 double alpha = 0.6;
-double tau_off[2] = {18,5}; //TODO Change
+double tau_off[2] = {18.7,-4.5}; //TODO Change
 
 KDL::JntArray q_kdl(7);
 KDL::JntArray q_kdl_prev(7);
@@ -114,6 +117,21 @@ struct ForceSensorData *fdata;
 
 int64_t now = 0;
 
+k_api::Base::ServoingModeInformation servoingMode;
+k_api::Base::BaseClient *base;
+k_api::ActuatorConfig::ControlModeInformation control_mode_message;
+k_api::ActuatorConfig::ActuatorConfigClient *actuator_config;
+
+void my_handler(int s)
+{
+    printf("Caught signal %d\n", s);
+    control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
+    actuator_config->SetControlMode(control_mode_message, 2);
+
+    servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
+    base->SetServoingMode(servoingMode);
+    exit(1);
+}
 
 
 // Create closure to set finished to true after an END or an ABORT
@@ -209,7 +227,7 @@ void example_move_to_home_position(k_api::Base::BaseClient* base)
     }
 }
 
-bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyclicClient* base_cyclic)
+bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyclicClient* base_cyclic,k_api::ActuatorConfig::ActuatorConfigClient* actuator_config)
 {
     bool return_status = true;
 
@@ -221,6 +239,22 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     initForceSensorUDP(fdata);
     tareForceSensor(fdata);
     sleep(2);
+
+    VectorXd dzvec(8);
+    VectorXd dzfilt(7);
+    dzvec << 0,0,0,0,0,0,0,0;
+    dzfilt << 0,0,0,0,0,0,0;
+
+    VectorXd ddzvec(8);
+    VectorXd ddzfilt(7);
+    ddzvec << 0,0,0,0,0,0,0,0;
+    ddzfilt << 0,0,0,0,0,0,0;
+
+    VectorXd afilt(7);
+    afilt <<-6.85881892828910899595,20.16285475449179642737,-32.93154091636195346382,32.27400867099097325763,-18.97904383508130621294,6.20086512403968459495,-0.86832486976192524430;
+    VectorXd bfilt(8);
+    bfilt << 0.00000000000022000386,0.00000000000154002705,0.00000000000462008114,0.00000000000770013524,0.00000000000770013524,0.00000000000462008114,0.00000000000154002705,0.00000000000022000386;
+
 
 
     const std::string urdf = "/home/nick/Documents/Github/kinova-impedance/URDF/GEN3_URDF_V12.urdf";
@@ -239,6 +273,9 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     double tor_cmd[2] = {0.0,0.0};
 
     z = (double*)calloc(DURATION*1000,sizeof(double));
+    dz = (double*)calloc(DURATION*1000,sizeof(double));
+    ddz = (double*)calloc(DURATION*1000,sizeof(double));
+
     Fsense = (double*)calloc(DURATION*1000,sizeof(double));
     Fest = (double*)calloc(DURATION*1000,sizeof(double));
 
@@ -255,14 +292,14 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     openLogFile(&outputFile);
 
     // Move arm to ready position
-    example_move_to_home_position(base);
+    //example_move_to_home_position(base);
 
     k_api::BaseCyclic::Feedback base_feedback;
     k_api::BaseCyclic::Command  base_command;
 
     std::vector<float> commands;
 
-    auto servoingMode = k_api::Base::ServoingModeInformation();
+    servoingMode = k_api::Base::ServoingModeInformation();
 
     
 
@@ -299,15 +336,15 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
         base_feedback = base_cyclic->Refresh(base_command);
         
         // Set first actuator in torque mode now that the command is equal to measure
-        auto control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
+        control_mode_message = k_api::ActuatorConfig::ControlModeInformation();
         control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::TORQUE);
 
 
         //TODO: set actuator 2 (id = 3) and 4 (id = 5)
-        int first_actuator_device_id = 3;
+        int first_actuator_device_id = 2;
         actuator_config->SetControlMode(control_mode_message, first_actuator_device_id);
-        int second_actuator_device_id = 5;
-        actuator_config->SetControlMode(control_mode_message, second_actuator_device_id);
+        //int second_actuator_device_id = 5;
+        //actuator_config->SetControlMode(control_mode_message, second_actuator_device_id);
 
 
         solvers.FK_solver_pos->JntToCart(q_kdl, X);
@@ -330,7 +367,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 tact[i][timer_count] = data.actuators(actuatorIndexs[i]).torque();
             }
 
-            for(int i = 0; i < 7; i ++) q_kdl_prev(i) = PI*data.actuators(i).position()/180.0;
+            for(int i = 0; i < 7; i ++) q_kdl(i) = PI*data.actuators(i).position()/180.0;
 
             
         };
@@ -359,25 +396,30 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 if(timer_count>2) ddz[timer_count] = (dz[timer_count] - dz[timer_count-1])/0.001;
                 
                 //filter 
+                butterworth(&dz[timer_count], &dz[timer_count], dzvec, dzfilt, afilt, bfilt);
+                butterworth(&ddz[timer_count], &ddz[timer_count], ddzvec, ddzfilt, afilt, bfilt);
 
                 readForceSensor(fdata);
                 Fsense[timer_count] = -fdata->F[2];
 
-                Fic = -Md*ddz[timer_count] - Bd*dz[timer_count] - Kd*(z[timer_count]-z0);
+                Fic = -Md*ddz[timer_count] - Bd*dz[timer_count]; //- Kd*(z[timer_count]-z0);
 
                 //forceToTorque 
 
                 forceToTorque(Fic, l, q_cur, tor_cmd, tau_off);
-
                 //check tor levels!
+
+                //std::cout << tor_cmd[0] << ", " << tor_cmd[1] << std::endl;
                 
                 if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] > 0.087)
                 {
+                    for(int i = 0; i < 7; i++) q_kdl_prev(i) = q_kdl(i);
+
                     //
-                    base_command.mutable_actuators(1)->set_position(base_feedback.actuators(1).position());
-                    base_command.mutable_actuators(1)->set_torque_joint(-tau_off[0] + tor_cmd[0]);
-                    base_command.mutable_actuators(3)->set_position(base_feedback.actuators(3).position());
-                    base_command.mutable_actuators(3)->set_torque_joint(-tau_off[1] + tor_cmd[1]);
+                    base_command.mutable_actuators(1)->set_position(q_kdl(1)*180.0/PI);
+                    base_command.mutable_actuators(1)->set_torque_joint(-15.5);  //-tau_off[0] + tor_cmd[0]);
+                    //base_command.mutable_actuators(3)->set_position(base_feedback.actuators(3).position());
+                    //base_command.mutable_actuators(3)->set_torque_joint(-tau_off[1] + tor_cmd[1]);
                 }
                 else
                 {
@@ -439,6 +481,10 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
 int main(int argc, char **argv)
 {
+
+    signal(SIGINT, my_handler);
+
+
     auto parsed_args = ParseExampleArguments(argc, argv);
 
     // Create API objects
@@ -468,10 +514,12 @@ int main(int argc, char **argv)
     std::cout << "Sessions created" << std::endl;
 
     // Create services
-    auto base = new k_api::Base::BaseClient(router);
+    base = new k_api::Base::BaseClient(router);
     auto base_cyclic = new k_api::BaseCyclic::BaseCyclicClient(router_real_time);
+    actuator_config = new k_api::ActuatorConfig::ActuatorConfigClient(router);
 
-    auto isOk = admittanceControl(base, base_cyclic);
+
+    auto isOk = admittanceControl(base, base_cyclic, actuator_config);
     if (!isOk)
     {
         std::cout << "There has been an unexpected error in example_cyclic_armbase() function." << std::endl;
