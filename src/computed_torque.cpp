@@ -21,11 +21,12 @@
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
-void SMC(double *dz, double *zs, double Ks, double *Fz)
+void SMC(double *dz, double *zs, double Ks, double *Fa)
 {
 	//calc sigma
 
-	double Fa = *Fz - Ks*((*dz-*zs > 0) - (*dz-*zs < 0)); //K*sgn(sigma) + Fext
+	*Fa = - Ks*((*dz-*zs > 0) - (*dz-*zs < 0)); //K*sgn(sigma) 
+	*Fa = -Ks*(tanh((*dz-*zs)/50.0)); // K*tanh(sigma/phi)
 	//force to torque
 	//add tau_est
 
