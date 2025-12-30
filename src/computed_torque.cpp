@@ -26,13 +26,13 @@ void SMC(double *dz, double *zs, double Ks, double *Fa)
 	//calc sigma
 
 	*Fa = - Ks*((*dz-*zs > 0) - (*dz-*zs < 0)); //K*sgn(sigma) 
-	*Fa = -Ks*(tanh((*dz-*zs)/50.0)); // K*tanh(sigma/phi)
+	*Fa = -Ks*(tanh((*dz-*zs)/5.0)); // K*tanh(sigma/phi)
 	//force to torque
 	//add tau_est
 
 }
 
-void slidingSurface(double *z, double *z0, double *zs, double *dz, double *Fz, double *Kd, double *Bd, double *Md, double *z_int, double F_int)
+void slidingSurface(double *z, double *z0, double *zs, double *dz, double *Fz, double *Kd, double *Bd, double *Md, double *z_int, double *F_int)
 {
 	*z_int = *z_int + 0.001*(*z-*z0);
 	*F_int = *F_int + 0.001*(*Fz);

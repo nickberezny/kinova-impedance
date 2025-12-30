@@ -7,6 +7,9 @@ LIBS=-L./lib/  -L/usr/lib/ -L/home/nick/Documents/Github/kinova-impedance/kortex
 impedanceTorque:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/filters.cpp src/inverse_dynamics.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/controllers/impedance_torque.cpp $(LIBS) -o build/impedanceTorque
 
+impedanceSMC:
+	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/computed_torque.cpp src/filters.cpp src/inverse_dynamics.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/controllers/impedance_sliding.cpp $(LIBS) -o build/impedanceSMC
+
 
 ZAdmCartControl:
 	$(CC) -D_OS_UNIX $(INCLUDES) $(K_INCLUDES) src/filters.cpp src/inverse_dynamics.cpp src/forceSensor.c src/admittance.cpp src/safety.cpp src/utilities.cpp src/dataLogger.cpp src/inverse_kinematics.cpp src/controllers/admittance_1axis.cpp $(LIBS) -o build/ZAdmCartControl

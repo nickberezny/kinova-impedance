@@ -1,0 +1,2 @@
+void slidingSurface(double *z, double *z0, double *zs, double *dz, double *Fz, double *Kd, double *Bd, double *Md, double *z_int, double *F_int);
+void SMC(double *dz, double *zs, double Ks, double *Fa);

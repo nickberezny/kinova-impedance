@@ -71,7 +71,7 @@ using Eigen::VectorXd;
 #define PORT 10000
 #define PORT_REAL_TIME 10001
 
-#define DURATION 20             // Network timeout (seconds)
+#define DURATION 10             // Network timeout (seconds)
 
 float velocity = 20.0f;         // Default velocity of the actuator (degrees per seconds)
 float time_duration = DURATION; // Duration of the example (seconds)
@@ -324,11 +324,11 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
         Fext << 0.0;
 
         VectorXd K(1);
-        K << 0.000001;
+        K << 300.0;
         VectorXd D(1);
-        D << 200.0;
+        D << 300.0;
         VectorXd M(1);
-        M << 2.0;
+        M << 3.0;
 
         Eigen::MatrixXd A(2, 2);
         Eigen::MatrixXd Ad(2, 2);

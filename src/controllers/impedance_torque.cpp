@@ -73,7 +73,7 @@ using Eigen::VectorXd;
 #define PORT 10000
 #define PORT_REAL_TIME 10001
 
-#define DURATION 20             // Network timeout (seconds)
+#define DURATION 10             // Network timeout (seconds)
 
 float velocity = 20.0f;         // Default velocity of the actuator (degrees per seconds)
 float time_duration = DURATION; // Duration of the example (seconds)
@@ -106,7 +106,7 @@ double tau[2];
 double phi = -PI;
 double l[3] = {0.4368,0.3109,0.169};
 double alpha = 0.6;
-double tau_off[2] = {18.7,-4.5}; //TODO Change
+double tau_off[2] = {17.0,-3.8}; //TODO Change
 
 KDL::JntArray q_kdl(7);
 KDL::JntArray q_kdl_prev(7);
@@ -401,14 +401,20 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 readForceSensor(fdata);
                 Fsense[timer_count] = -fdata->F[2];
 
-                Fic = -Md*ddz[timer_count] - Bd*dz[timer_count]; //- Kd*(z[timer_count]-z0);
+                Fic = -Md*ddz[timer_count] - Bd*dz[timer_count] - Kd*(z[timer_count]-z0);
 
                 //forceToTorque 
 
                 forceToTorque(Fic, l, q_cur, tor_cmd, tau_off);
                 //check tor levels!
 
-                std::cout << tor_cmd[0] << ", " << tor_cmd[1] << std::endl;
+                if(tor_cmd[0]>-5.0) tor_cmd[0] = -5.0;
+                if(tor_cmd[0]<-20.0) tor_cmd[0] = -25.0;
+
+                if(tor_cmd[1]>8.0) tor_cmd[1] = 8.0;
+                if(tor_cmd[1]<1.0) tor_cmd[1] = 1.0;
+
+                std::cout << tor_cmd[0] << ", " << tor_cmd[1] << "," << z[timer_count] << "," << Fic << std::endl;
                 
                 if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] > 0.087)
                 {
@@ -416,9 +422,9 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
                     //
                     base_command.mutable_actuators(1)->set_position(q_kdl(1)*180.0/PI);
-                    base_command.mutable_actuators(1)->set_torque_joint(-15.5);  //-tau_off[0] + tor_cmd[0]);
+                    base_command.mutable_actuators(1)->set_torque_joint(tor_cmd[0]);  //-tau_off[0] + tor_cmd[0]);
                     base_command.mutable_actuators(3)->set_position(q_kdl(3)*180.0/PI);
-                    base_command.mutable_actuators(3)->set_torque_joint(5.0);//-tau_off[1] + tor_cmd[1]);
+                    base_command.mutable_actuators(3)->set_torque_joint(tor_cmd[1]);//-tau_off[1] + tor_cmd[1]);
                 }
                 else
                 {
@@ -464,6 +470,10 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     }
  
     // Set back the servoing mode to Single Level Servoing
+    control_mode_message.set_control_mode(k_api::ActuatorConfig::ControlMode::POSITION);
+    actuator_config->SetControlMode(control_mode_message, 2);
+    actuator_config->SetControlMode(control_mode_message, 4);
+
     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
     base->SetServoingMode(servoingMode);
 
