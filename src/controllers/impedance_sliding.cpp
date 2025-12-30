@@ -416,7 +416,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
                 std::cout << tor_cmd[0] << ", " << tor_cmd[1] << std::endl;
                 
-                if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] > 0.087)
+                if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] > 0.087 && z[timer_count] < 0.14)
                 {
                     for(int i = 0; i < 7; i++) q_kdl_prev(i) = q_kdl(i);
 
