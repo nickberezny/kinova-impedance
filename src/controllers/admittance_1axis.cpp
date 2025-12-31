@@ -103,7 +103,7 @@ double qdd_cur[3];
 double tau[2];
 double phi = -PI;
 double l[3] = {0.4368,0.3109,0.169};
-double alpha = 1.0;
+double alpha =0.05;
 
 KDL::JntArray q_kdl(7);
 KDL::JntArray q_kdl_prev(7);
@@ -218,9 +218,6 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
     fdata = (ForceSensorData*)calloc(1,sizeof *fdata);
 
-    initForceSensorUDP(fdata);
-    tareForceSensor(fdata);
-    sleep(2);
 
     VectorXd dzvec(8);
     VectorXd dzfilt(7);
@@ -232,10 +229,15 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
     ddzvec << 0,0,0,0,0,0,0,0;
     ddzfilt << 0,0,0,0,0,0,0;
 
-    VectorXd afilt(7);
-    afilt <<-6.43532475688657790158,17.76978864520641820945,-27.29100833212815757634,25.17605177335131116934,-13.94983800505135285164,4.29857409735324225153,-0.56824304536622272099;
+    /*VectorXd afilt(7);
+    afilt <<-6.85881892828910899595,20.16285475449179642737,-32.93154091636195346382,32.27400867099097325763,-18.97904383508130621294,6.20086512403968459495,-0.86832486976192524430;
     VectorXd bfilt(8);
-    bfilt << 0.00000000294123952020,0.00000002058867664137,0.00000006176602992412,0.00000010294338320686,0.00000010294338320686,0.00000006176602992412,0.00000002058867664137,0.00000000294123952020;
+    bfilt << 0.00000000000022000386,0.00000000000154002705,0.00000000000462008114,0.00000000000770013524,0.00000000000770013524,0.00000000000462008114,0.00000000000154002705,0.00000000000022000386;
+*/
+    VectorXd afilt(7);
+    afilt <<-6.71764277538359344533,19.34552060796207584303,-30.95939790627770449305,29.73546120069711307110,-17.14055127360225228017,5.49056443505947555650,-0.75395428509052409005;
+    VectorXd bfilt(8);
+    bfilt << 0.00000000002628584764,0.00000000018400093348,0.00000000055200280044,0.00000000092000466740,0.00000000092000466740,0.00000000055200280044,0.00000000018400093348,0.00000000002628584764;
 
 
 
@@ -270,6 +272,10 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
     // Move arm to ready position
     example_move_to_home_position(base);
+
+    initForceSensorUDP(fdata);
+    tareForceSensor(fdata);
+    sleep(2);
 
     k_api::BaseCyclic::Feedback base_feedback;
     k_api::BaseCyclic::Command  base_command;
@@ -319,16 +325,16 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
         VectorXd Xv(2);
         Xv << X.p[2], 0;
         VectorXd X0(2);
-        X0 << 0.095,0; //0.095, 0;
+        X0 << 0.32,0; //0.095, 0;
         VectorXd Fext(1);
         Fext << 0.0;
 
         VectorXd K(1);
-        K << 300.0;
+        K << 150.0;
         VectorXd D(1);
-        D << 300.0;
+        D << 70.0;
         VectorXd M(1);
-        M << 3.0;
+        M << 15.0;
 
         Eigen::MatrixXd A(2, 2);
         Eigen::MatrixXd Ad(2, 2);
@@ -383,13 +389,16 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 readForceSensor(fdata);
                 Fsense[timer_count] = -fdata->F[2];
 
-                estimateForceFromTorque(tact[0][timer_count], 17.5, q_cur, PI, &Fest[timer_count]);
+                estimateForceFromTorque(tact[0][timer_count], 24.0, q_cur, PI, &Fest[timer_count]);
                 if(Fest[timer_count] > 30.0 || Fest[timer_count] < -30.0)
                 {
                     Fest[timer_count] = 0.0;
                 }
 
-                Fext << alpha*Fsense[timer_count] + (1.0-alpha)*Fest[timer_count];
+                butterworth(&Fest[timer_count], &Fest[timer_count], ddzvec, ddzfilt, afilt, bfilt);
+
+
+                Fext << alpha*Fsense[timer_count] + (1.0-alpha)*(0.5+Fest[timer_count]);
                 Xv = virtualTrajectory(Ad, Bd, Fext, Xv, X0);
                 z[timer_count] = Xv(0);
 
@@ -399,7 +408,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
                 butterworth(&dz[timer_count], &dz[timer_count], dzvec, dzfilt, afilt, bfilt);
 
                 if(timer_count>2) ddz[timer_count] = (dz[timer_count] - dz[timer_count-1])/0.001;
-                //butterworth(&ddz[timer_count], &ddz[timer_count], ddzvec, ddzfilt, afilt, bfilt);
+
                 
                 //simplifiedInverseKinematics(q_cur, X, &phi, l);
                 solvers.IK_solver->CartToJnt(q_kdl_prev, X, q_kdl);
@@ -410,7 +419,7 @@ bool admittanceControl(k_api::Base::BaseClient* base, k_api::BaseCyclic::BaseCyc
 
                 //std::cout << z[timer_count] << std::endl;
                 
-                if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] > 0.087)
+                if(checkCommandAngle(q_kdl.data, q_kdl_prev.data, 7, 0.02, 0.02) && z[timer_count] < 0.35)
                 {
                     for(int i = 0; i < 7; i++)
                     {
